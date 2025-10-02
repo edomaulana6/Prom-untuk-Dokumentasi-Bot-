@@ -14,6 +14,7 @@ Fitur:
 import logging
 import os
 import asyncio
+from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import (
     Application,
@@ -252,9 +253,12 @@ async def download_media(chat_id: int, context: CallbackContext, url: str, forma
         context.chat_data.pop('last_update_time', None)
 
 def main() -> None:
+    # Muat variabel dari file .env
+    load_dotenv()
+
     TOKEN = os.getenv("TELEGRAM_TOKEN")
     if not TOKEN:
-        raise ValueError("Variabel environment TELEGRAM_TOKEN tidak diatur!")
+        raise ValueError("Variabel environment TELEGRAM_TOKEN tidak diatur! Buat file .env atau ekspor variabel.")
 
     os.makedirs('downloads', exist_ok=True)
 

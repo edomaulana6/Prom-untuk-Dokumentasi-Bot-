@@ -93,17 +93,22 @@ Bot Telegram ini adalah solusi lengkap untuk mengunduh video dan audio dari berb
 
 ## Konfigurasi
 
-Bot ini dikonfigurasi menggunakan *environment variable* untuk keamanan maksimal. Jangan pernah menulis token atau ID Anda langsung di dalam kode.
+Cara termudah dan paling direkomendasikan untuk mengonfigurasi bot adalah menggunakan file `.env`.
 
-Buat file `.env` (opsional, untuk kemudahan) atau ekspor variabel langsung di shell Anda.
+1.  **Buat file `.env`** di direktori yang sama dengan `bot.py`.
+    ```bash
+    touch .env
+    ```
 
-```sh
-# Wajib diisi
-export TELEGRAM_TOKEN="12345:ABC-DEF12345" # Ganti dengan token bot Anda dari @BotFather
-export OWNER_ID="123456789"               # Ganti dengan ID Telegram Anda
+2.  **Isi file `.env`** dengan konten berikut, ganti dengan nilai Anda sendiri:
+    ```dotenv
+    # Ganti dengan token bot Anda dari @BotFather
+    TELEGRAM_TOKEN="12345:ABC-DEF12345"
 
-# Anda bisa mendapatkan OWNER_ID dengan mengirim pesan ke bot @userinfobot
-```
+    # Ganti dengan ID pengguna Telegram Anda (lihat cara mendapatkannya di bawah)
+    OWNER_ID="123456789"
+    ```
+    **Penting:** Jangan gunakan tanda kutip (`"`) di sekitar nilai di dalam file `.env`. Bot akan secara otomatis memuat variabel-variabel ini saat dijalankan.
 
 ### Mendapatkan ID Pengguna (OWNER_ID)
 1. Buka aplikasi Telegram.
