@@ -51,10 +51,14 @@ Bot Telegram ini adalah solusi lengkap untuk mengunduh video dan audio dari berb
 - `pip` (manajer paket Python).
 - `git` (untuk mengkloning repositori).
 - **FFmpeg**: Sangat penting untuk mengonversi audio ke format `.mp3`.
-  ```bash
-  # Di sistem berbasis Debian/Ubuntu
-  sudo apt update && sudo apt install ffmpeg
-  ```
+  - **Untuk Linux (Debian/Ubuntu):**
+    ```bash
+    sudo apt update && sudo apt install ffmpeg
+    ```
+  - **Untuk Termux (Android):**
+    ```bash
+    pkg update && pkg install ffmpeg
+    ```
 
 ### Langkah-langkah Instalasi
 
