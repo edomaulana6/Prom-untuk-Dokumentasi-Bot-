@@ -91,6 +91,22 @@ Bot Telegram ini adalah solusi lengkap untuk mengunduh video dan audio dari berb
     pip install --upgrade "git+https://github.com/yt-dlp/yt-dlp.git"
     ```
 
+## Mengatur Perintah di @BotFather
+
+Untuk membuat bot Anda lebih mudah digunakan, Anda bisa mengatur daftar perintah yang muncul saat pengguna mengetik `/`.
+
+1.  Buka @BotFather di Telegram.
+2.  Kirim perintah `/setcommands`.
+3.  Pilih bot Anda.
+4.  Kirimkan teks berikut dalam satu pesan:
+    ```
+    start - Memulai bot dan menampilkan pesan selamat datang
+    help - Menampilkan daftar perintah yang tersedia
+    search - Mencari video di YouTube secara interaktif
+    ```
+
+Perintah `/stop` sengaja tidak dimasukkan agar tidak terlihat oleh pengguna biasa, namun tetap akan berfungsi untuk Anda sebagai pemilik.
+
 ## Konfigurasi
 
 Cara termudah dan paling direkomendasikan untuk mengonfigurasi bot adalah menggunakan file `.env`.
