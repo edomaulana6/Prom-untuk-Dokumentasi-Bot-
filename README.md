@@ -174,7 +174,7 @@ python3 bot.py
 
 -   `/start`: Memulai interaksi dengan bot.
 -   `/help`: Menampilkan daftar perintah.
--   `/search <kata kunci>`: Mencari video di YouTube. Hasilnya akan berupa 5 video teratas dengan thumbnail dan tombol unduh. Jika kata kunci tidak diberikan, bot akan menanyakannya.
+-   `/search <kata kunci>`: Mencari video di YouTube dengan **filter durasi maksimal 15 menit**. Hasilnya akan berupa 5 video teratas dengan thumbnail dan tombol unduh. Jika kata kunci tidak diberikan, bot akan menanyakannya.
 -   `/stop`: Menghentikan bot (hanya bisa dijalankan oleh `OWNER_ID`).
 -   **Kirim URL**: Langsung kirim URL dari platform yang didukung `yt-dlp` (YouTube, Twitter, dll.) untuk mendapatkan opsi unduh Video/Audio.
 
