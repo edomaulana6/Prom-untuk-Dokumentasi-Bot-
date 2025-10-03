@@ -113,7 +113,7 @@ Cara termudah dan paling direkomendasikan untuk mengonfigurasi bot adalah menggu
 
 1.  **Buat file `.env`** di direktori yang sama dengan `bot.py`.
     ```bash
-    touch .env
+    nano .env
     ```
 
 2.  **Isi file `.env`** dengan konten berikut, ganti dengan nilai Anda sendiri:
