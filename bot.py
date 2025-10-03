@@ -86,17 +86,22 @@ async def get_search_query(update: Update, context: CallbackContext) -> int:
 async def perform_search(message, query: str, context: CallbackContext):
     status_msg = await message.reply_text(f"🔎 Mencari `{query}` (maks 15 menit)...", parse_mode='Markdown')
     try:
+        def duration_filter(info, *, incomplete):
+            """Filter untuk video dengan durasi di bawah 15 menit (900 detik)."""
+            duration = info.get('duration')
+            # Lewati jika durasi tidak tersedia, dan pastikan durasi di bawah batas.
+            return duration is not None and duration > 0 and duration <= 900
+
         ydl_opts = {
             'format': 'best',
             'noplaylist': True,
             'quiet': True,
-            # Cari 20 video, lalu filter berdasarkan durasi, dan ambil 5 teratas.
-            'match_filter': lambda info, *, incomplete: info.get('duration') and info.get('duration') <= 900,
+            'match_filter': duration_filter,
         }
         with YoutubeDL(ydl_opts) as ydl:
-            # Kita cari lebih banyak (ytsearch20) untuk peluang lebih besar menemukan video pendek
+            # Cari 20 video untuk memberikan peluang lebih besar menemukan video yang cocok.
             result = ydl.extract_info(f"ytsearch20:{query}", download=False)
-            # Batasi hasil yang ditampilkan menjadi 5 saja
+            # Ambil 5 hasil teratas dari yang sudah difilter.
             if 'entries' in result:
                 result['entries'] = result['entries'][:5]
 
