@@ -14,7 +14,6 @@ Fitur:
 import logging
 import os
 import asyncio
-import shutil
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import (
@@ -27,7 +26,6 @@ from telegram.ext import (
     ConversationHandler
 )
 from yt_dlp import YoutubeDL
-from pinscrape import pinscrape
 
 # Konfigurasi logging
 logging.basicConfig(
@@ -37,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # State untuk ConversationHandler
-GET_QUERY, GET_PINTEREST_QUERY = range(2)
+GET_QUERY = range(1)
 
 # --- Handler Perintah Utama ---
 
@@ -141,64 +139,6 @@ async def perform_search(message, query: str, context: CallbackContext):
 
 async def cancel_search(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text("Pencarian dibatalkan.")
-    return ConversationHandler.END
-
-
-# --- Alur Percakapan Pinterest ---
-
-async def pinterest_search_start(update: Update, context: CallbackContext) -> int:
-    """Memulai alur pencarian Pinterest."""
-    query = " ".join(context.args)
-    if query:
-        await perform_pinterest_search(update.message, query, context)
-        return ConversationHandler.END
-
-    await update.message.reply_text("Gambar apa yang ingin Anda cari di Pinterest?")
-    return GET_PINTEREST_QUERY
-
-
-async def get_pinterest_query(update: Update, context: CallbackContext) -> int:
-    """Menerima query dari pengguna dan melakukan pencarian Pinterest."""
-    await perform_pinterest_search(update.message, update.message.text, context)
-    return ConversationHandler.END
-
-
-async def perform_pinterest_search(message: Update.message, query: str, context: CallbackContext) -> None:
-    """Fungsi untuk menjalankan pencarian Pinterest dan mengirim hasil."""
-    status_msg = await message.reply_text(f"🔎 Mencari gambar di Pinterest untuk: `{query}`...", parse_mode='Markdown')
-    output_folder = f"downloads/pinterest_{message.message_id}"
-
-    def scrape_sync():
-        details = pinscrape.scraper.scrape(query, output_folder, {}, 10, 5)
-        if details.get("isDownloaded"):
-            return details.get("urls_list", [])
-        return []
-
-    try:
-        loop = asyncio.get_running_loop()
-        image_paths = await loop.run_in_executor(None, scrape_sync)
-
-        if not image_paths:
-            await status_msg.edit_text("Tidak ada gambar yang ditemukan.")
-            return
-
-        await status_msg.edit_text(f"Mengirim {len(image_paths)} gambar...")
-        media_group = [InputMediaPhoto(media=open(path, 'rb')) for path in image_paths]
-        await context.bot.send_media_group(chat_id=message.chat_id, media=media_group)
-        await status_msg.delete()
-
-    except Exception as e:
-        logger.error(f"Error saat mencari di Pinterest: {e}")
-        await status_msg.edit_text("Terjadi kesalahan saat mencari gambar di Pinterest.")
-    finally:
-        if os.path.exists(output_folder):
-            shutil.rmtree(output_folder)
-            logger.info(f"Folder sementara {output_folder} dihapus.")
-
-
-async def cancel_pinterest_search(update: Update, context: CallbackContext) -> int:
-    """Membatalkan alur pencarian Pinterest."""
-    await update.message.reply_text("Pencarian Pinterest dibatalkan.")
     return ConversationHandler.END
 
 
@@ -332,17 +272,8 @@ def main() -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    pinterest_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("pinterest", pinterest_search_start)],
-        states={
-            GET_PINTEREST_QUERY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_pinterest_query)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel_pinterest_search)],
-    )
-
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(search_conv_handler)
-    application.add_handler(pinterest_conv_handler)
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^dl\\|"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
 

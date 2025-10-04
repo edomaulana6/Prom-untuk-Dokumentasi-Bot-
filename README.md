@@ -103,7 +103,6 @@ Untuk membuat bot Anda lebih mudah digunakan, Anda bisa mengatur daftar perintah
     start - Memulai bot dan menampilkan pesan selamat datang
     help - Menampilkan daftar perintah yang tersedia
     search - Mencari video di YouTube secara interaktif
-    pinterest - Mencari gambar di Pinterest
     ```
 
 Perintah `/stop` sengaja tidak dimasukkan agar tidak terlihat oleh pengguna biasa, namun tetap akan berfungsi untuk Anda sebagai pemilik.
@@ -176,7 +175,6 @@ python3 bot.py
 -   `/start`: Memulai interaksi dengan bot.
 -   `/help`: Menampilkan daftar perintah.
 -   `/search <kata kunci>`: Mencari video di YouTube. Hasilnya akan berupa 5 video teratas dengan thumbnail dan tombol unduh. Jika kata kunci tidak diberikan, bot akan menanyakannya.
--   `/pinterest <kata kunci>`: Mencari 5 gambar teratas di Pinterest.
 -   `/stop`: Menghentikan bot (hanya bisa dijalankan oleh `OWNER_ID`).
 -   **Kirim URL**: Langsung kirim URL dari platform yang didukung `yt-dlp` (YouTube, Twitter, dll.) untuk mendapatkan opsi unduh Video/Audio.
 
