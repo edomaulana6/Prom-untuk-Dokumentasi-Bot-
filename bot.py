@@ -14,6 +14,7 @@ Fitur:
 import logging
 import os
 import asyncio
+import shutil
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import (
@@ -26,6 +27,7 @@ from telegram.ext import (
     ConversationHandler
 )
 from yt_dlp import YoutubeDL
+from pinscrape import pinscrape
 
 # Konfigurasi logging
 logging.basicConfig(
@@ -140,6 +142,53 @@ async def perform_search(message, query: str, context: CallbackContext):
 async def cancel_search(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text("Pencarian dibatalkan.")
     return ConversationHandler.END
+
+
+# --- Pencarian Pinterest ---
+
+async def pinterest_search(update: Update, context: CallbackContext) -> None:
+    """Mencari dan mengirim 5 gambar dari Pinterest."""
+    query = " ".join(context.args)
+    if not query:
+        await update.message.reply_text("Silakan masukkan kata kunci setelah perintah /pinterest.")
+        return
+
+    status_msg = await update.message.reply_text(f"🔎 Mencari gambar di Pinterest untuk: `{query}`...", parse_mode='Markdown')
+
+    output_folder = f"downloads/pinterest_{update.effective_message.message_id}"
+
+    def scrape_sync():
+        # pinscrape.scraper.scrape mengunduh file secara default
+        details = pinscrape.scraper.scrape(query, output_folder, {}, 10, 5)
+        if details.get("isDownloaded"):
+            return details.get("urls_list", [])
+        return []
+
+    try:
+        loop = asyncio.get_running_loop()
+        # Menjalankan fungsi sinkron di thread terpisah agar tidak memblokir bot
+        image_paths = await loop.run_in_executor(None, scrape_sync)
+
+        if not image_paths:
+            await status_msg.edit_text("Tidak ada gambar yang ditemukan.")
+            return
+
+        await status_msg.edit_text(f"Mengirim {len(image_paths)} gambar...")
+
+        # Mengirim gambar sebagai media group
+        media_group = [InputMediaPhoto(media=open(path, 'rb')) for path in image_paths]
+        await context.bot.send_media_group(chat_id=update.effective_chat.id, media=media_group)
+
+        await status_msg.delete()
+
+    except Exception as e:
+        logger.error(f"Error saat mencari di Pinterest: {e}")
+        await status_msg.edit_text("Terjadi kesalahan saat mencari gambar di Pinterest.")
+    finally:
+        # Membersihkan folder sementara setelah selesai
+        if os.path.exists(output_folder):
+            shutil.rmtree(output_folder)
+            logger.info(f"Folder sementara {output_folder} dihapus.")
 
 
 # --- Logika Unduhan ---
@@ -273,6 +322,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stop", stop))
+    application.add_handler(CommandHandler("pinterest", pinterest_search))
     application.add_handler(search_conv_handler)
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^dl\\|"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
