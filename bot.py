@@ -84,26 +84,16 @@ async def get_search_query(update: Update, context: CallbackContext) -> int:
     return ConversationHandler.END
 
 async def perform_search(message, query: str, context: CallbackContext):
-    status_msg = await message.reply_text(f"🔎 Mencari `{query}` (maks 15 menit)...", parse_mode='Markdown')
+    status_msg = await message.reply_text(f"🔎 Mencari `{query}`...", parse_mode='Markdown')
     try:
-        def duration_filter(info, *, incomplete):
-            """Filter untuk video dengan durasi di bawah 15 menit (900 detik)."""
-            duration = info.get('duration')
-            # Lewati jika durasi tidak tersedia, dan pastikan durasi di bawah batas.
-            return duration is not None and duration > 0 and duration <= 900
-
         ydl_opts = {
             'format': 'best',
             'noplaylist': True,
+            'default_search': 'ytsearch5',
             'quiet': True,
-            'match_filter': duration_filter,
         }
         with YoutubeDL(ydl_opts) as ydl:
-            # Cari 20 video untuk memberikan peluang lebih besar menemukan video yang cocok.
-            result = ydl.extract_info(f"ytsearch20:{query}", download=False)
-            # Ambil 5 hasil teratas dari yang sudah difilter.
-            if 'entries' in result:
-                result['entries'] = result['entries'][:5]
+            result = ydl.extract_info(f"ytsearch5:{query}", download=False)
 
         await status_msg.delete()
 
