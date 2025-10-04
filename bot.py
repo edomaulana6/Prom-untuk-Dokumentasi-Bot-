@@ -26,6 +26,7 @@ from telegram.ext import (
     ConversationHandler
 )
 from yt_dlp import YoutubeDL
+from pinterest_dl import PinterestDL
 
 # Konfigurasi logging
 logging.basicConfig(
@@ -35,7 +36,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # State untuk ConversationHandler
-GET_QUERY = range(1)
+GET_QUERY, GET_PINTEREST_QUERY = range(2)
 
 # --- Handler Perintah Utama ---
 
@@ -53,6 +54,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
         "/start - Memulai bot\n"
         "/help - Menampilkan pesan ini\n"
         "/search - Memulai pencarian video interaktif\n"
+        "/pinterest - Memulai pencarian gambar di Pinterest\n"
         "/stop - Menghentikan bot (hanya pemilik)\n\n"
         "Kirimkan URL video untuk diunduh."
     )
@@ -139,6 +141,69 @@ async def perform_search(message, query: str, context: CallbackContext):
 
 async def cancel_search(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text("Pencarian dibatalkan.")
+    return ConversationHandler.END
+
+
+# --- Alur Percakapan untuk Pencarian Pinterest ---
+
+async def pinterest_search_start(update: Update, context: CallbackContext) -> int:
+    query = " ".join(context.args)
+    if query:
+        await perform_pinterest_search(update.message, query, context)
+        return ConversationHandler.END
+
+    await update.message.reply_text("Apa yang ingin Anda cari di Pinterest?")
+    return GET_PINTEREST_QUERY
+
+async def get_pinterest_query(update: Update, context: CallbackContext) -> int:
+    await perform_pinterest_search(update.message, update.message.text, context)
+    return ConversationHandler.END
+
+async def perform_pinterest_search(message, query: str, context: CallbackContext):
+    status_msg = await message.reply_text(f"🔎 Mencari `{query}` di Pinterest...", parse_mode='Markdown')
+    try:
+        results = PinterestDL.with_api().search(query=query, num=5)
+
+        await status_msg.delete()
+
+        if results:
+            await message.reply_text("Berikut adalah hasil pencarian teratas di Pinterest:")
+            for result in results:
+                image_url = result.get('image_url')
+                post_url = result.get('post_url')
+                title = result.get('title', 'Tanpa Judul')
+
+                if not image_url or not post_url:
+                    continue
+
+                caption = f"<b>{title}</b>"
+                keyboard = [
+                    [
+                        InlineKeyboardButton("📌 Lihat Pin", url=post_url),
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                try:
+                    await context.bot.send_photo(
+                        chat_id=message.chat_id, photo=image_url, caption=caption,
+                        parse_mode='HTML', reply_markup=reply_markup
+                    )
+                except Exception as e:
+                    logger.error(f"Gagal mengirim hasil Pinterest: {e}. URL: {image_url}")
+                    # Fallback jika pengiriman foto gagal
+                    await context.bot.send_message(
+                        chat_id=message.chat_id, text=f"{caption}\n{post_url}",
+                        parse_mode='HTML', reply_markup=reply_markup
+                    )
+        else:
+            await message.reply_text("Tidak ada hasil yang ditemukan di Pinterest.")
+    except Exception as e:
+        logger.error(f"Error saat mencari di Pinterest: {e}")
+        await status_msg.edit_text("Terjadi kesalahan saat melakukan pencarian di Pinterest.")
+
+async def cancel_pinterest_search(update: Update, context: CallbackContext) -> int:
+    await update.message.reply_text("Pencarian Pinterest dibatalkan.")
     return ConversationHandler.END
 
 
@@ -270,10 +335,17 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel_search)],
     )
 
+    pinterest_search_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("pinterest", pinterest_search_start)],
+        states={GET_PINTEREST_QUERY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_pinterest_query)]},
+        fallbacks=[CommandHandler("cancel", cancel_pinterest_search)],
+    )
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(search_conv_handler)
+    application.add_handler(pinterest_search_conv_handler)
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^dl\\|"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
 
