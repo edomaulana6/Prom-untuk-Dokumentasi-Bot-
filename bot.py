@@ -26,7 +26,7 @@ from telegram.ext import (
     ConversationHandler
 )
 from yt_dlp import YoutubeDL
-from pinterest_dl import PinterestDL
+# from pinterest_dl import PinterestDL # Pindahkan impor ini untuk mencegah crash saat startup
 
 # Konfigurasi logging
 logging.basicConfig(
@@ -170,13 +170,17 @@ async def get_pinterest_query(update: Update, context: CallbackContext) -> int:
 async def perform_pinterest_search(message, query: str, context: CallbackContext):
     status_msg = await message.reply_text(f"🔎 Mencari `{query}` di Pinterest...", parse_mode='Markdown')
     try:
-        # Jalankan panggilan sinkron yang memblokir di thread terpisah
-        results = await asyncio.to_thread(PinterestDL.with_api().search, query=query, num=5)
+        from pinterest_dl import PinterestDL  # Impor lokal untuk menghindari crash global
+
+        # Jalankan panggilan sinkron di thread terpisah dengan timeout
+        search_task = asyncio.to_thread(PinterestDL.with_api().search, query=query, num=5)
+        results = await asyncio.wait_for(search_task, timeout=300.0)  # Timeout 300 detik (5 menit)
 
         await status_msg.delete()
 
         if results:
             await message.reply_text("Berikut adalah hasil pencarian teratas di Pinterest:")
+            media_to_send = []
             for result in results:
                 image_url = result.get('image_url')
                 post_url = result.get('post_url')
@@ -186,30 +190,31 @@ async def perform_pinterest_search(message, query: str, context: CallbackContext
                     continue
 
                 caption = f"<b>{title}</b>"
-                keyboard = [
-                    [
-                        InlineKeyboardButton("📌 Lihat Pin", url=post_url),
-                    ]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
+                keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("📌 Lihat Pin", url=post_url)]])
 
                 try:
+                    # Kirim foto dengan caption dan tombol
                     await context.bot.send_photo(
-                        chat_id=message.chat_id, photo=image_url, caption=caption,
-                        parse_mode='HTML', reply_markup=reply_markup
+                        chat_id=message.chat_id,
+                        photo=image_url,
+                        caption=caption,
+                        parse_mode='HTML',
+                        reply_markup=keyboard
                     )
                 except Exception as e:
-                    logger.error(f"Gagal mengirim hasil Pinterest: {e}. URL: {image_url}")
-                    # Fallback jika pengiriman foto gagal
-                    await context.bot.send_message(
-                        chat_id=message.chat_id, text=f"{caption}\n{post_url}",
-                        parse_mode='HTML', reply_markup=reply_markup
-                    )
+                    logger.error(f"Gagal mengirim foto Pinterest {image_url}: {e}")
+                    await message.reply_text(f"Gagal memuat gambar: {title}\n{post_url}")
+
         else:
             await message.reply_text("Tidak ada hasil yang ditemukan di Pinterest.")
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Pencarian Pinterest untuk '{query}' timed out.")
+        await status_msg.edit_text("⏳ Pencarian memakan waktu terlalu lama. Silakan coba lagi.")
+
     except Exception as e:
         logger.error(f"Error saat mencari di Pinterest: {e}", exc_info=True)
-        await status_msg.edit_text("Terjadi kesalahan saat melakukan pencarian di Pinterest.")
+        await status_msg.edit_text("Terjadi kesalahan tak terduga saat mencari. Coba lagi nanti.")
 
 async def cancel_pinterest_search(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text("Pencarian Pinterest dibatalkan.")
@@ -329,14 +334,20 @@ async def download_media(chat_id: int, context: CallbackContext, url: str, forma
 def main() -> None:
     # Muat variabel dari file .env
     load_dotenv()
+    logger.info("Memuat environment variables...")
 
     TOKEN = os.getenv("TELEGRAM_TOKEN")
-    if not TOKEN:
+    if not TOKEN or TOKEN == "YOUR_TELEGRAM_TOKEN_HERE":
+        logger.critical("Variabel environment TELEGRAM_TOKEN tidak diatur! Bot tidak dapat dimulai.")
         raise ValueError("Variabel environment TELEGRAM_TOKEN tidak diatur! Buat file .env atau ekspor variabel.")
+
+    logger.info("Token Telegram ditemukan.")
 
     os.makedirs('downloads', exist_ok=True)
 
+    logger.info("Membangun aplikasi Telegram...")
     application = Application.builder().token(TOKEN).build()
+    logger.info("Aplikasi berhasil dibangun.")
 
     search_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("search", search_start)],
