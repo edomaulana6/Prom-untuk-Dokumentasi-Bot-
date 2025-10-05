@@ -148,24 +148,30 @@ async def handle_url(update: Update, context: CallbackContext) -> None:
     """Mendeteksi URL dalam pesan teks menggunakan pengecekan string sederhana."""
     message_text = update.message.text
 
+    # Pengecekan paling dasar untuk melihat apakah ada kemungkinan URL
     if 'http://' not in message_text and 'https://' not in message_text:
+        # Jika tidak ada, abaikan pesan ini sepenuhnya.
         return
 
+    # Jika ada kemungkinan URL, coba ekstrak kata pertama yang mengandungnya
     url = None
     for word in message_text.split():
         if word.startswith('http://') or word.startswith('https://'):
             url = word
             break
 
+    # Jika setelah dicek ternyata tidak ada URL yang valid (misalnya, teks seperti "nonhttp://..."), abaikan.
     if not url:
         return
 
+    # Buat tombol inline untuk opsi unduhan
     keyboard = [[
         InlineKeyboardButton("🎬 Video", callback_data=f"dl|video|{url}"),
         InlineKeyboardButton("🎵 Audio", callback_data=f"dl|audio|{url}"),
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # Kirim balasan hanya jika URL ditemukan
     await update.message.reply_text(
         f"Tautan ditemukan: `{url}`\n\nPilih format unduhan:",
         reply_markup=reply_markup,
@@ -182,6 +188,7 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
         await query.edit_message_text("❌ Terjadi kesalahan: Data tidak valid.")
         return
 
+    # Hapus tombol dari pesan asli untuk mencegah klik ganda
     if query.message.photo:
         await query.edit_message_reply_markup(reply_markup=None)
     else:
@@ -204,6 +211,7 @@ def progress_hook(d, status_message: Update.message, context: CallbackContext):
             speed = d.get('_speed_str', 'N/A').strip()
             eta = d.get('_eta_str', 'N/A').strip()
 
+            # Throttle updates to avoid hitting Telegram API limits
             now = loop.time()
             last_update = context.chat_data.get('last_update_time', 0)
             if now - last_update > 2:
