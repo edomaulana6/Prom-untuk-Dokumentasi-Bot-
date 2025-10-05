@@ -160,7 +160,7 @@ async def handle_url(update: Update, context: CallbackContext) -> None:
             url = word
             break
 
-    # Jika setelah dicek ternyata tidak ada URL yang valid (misalnya, teks seperti "nonhttp://..."), abaikan.
+    # Jika setelah dicek ternyata tidak ada URL yang valid, abaikan.
     if not url:
         return
 
