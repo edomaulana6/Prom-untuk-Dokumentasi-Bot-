@@ -147,13 +147,21 @@ async def cancel_search(update: Update, context: CallbackContext) -> int:
 # --- Alur Percakapan untuk Pencarian Pinterest ---
 
 async def pinterest_search_start(update: Update, context: CallbackContext) -> int:
-    query = " ".join(context.args)
-    if query:
-        await perform_pinterest_search(update.message, query, context)
-        return ConversationHandler.END
+    try:
+        query = " ".join(context.args)
+        if query:
+            await perform_pinterest_search(update.message, query, context)
+            return ConversationHandler.END
 
-    await update.message.reply_text("Apa yang ingin Anda cari di Pinterest?")
-    return GET_PINTEREST_QUERY
+        await update.message.reply_text("Apa yang ingin Anda cari di Pinterest?")
+        return GET_PINTEREST_QUERY
+    except Exception as e:
+        logger.error(f"Error in pinterest_search_start: {e}", exc_info=True)
+        if update.message:
+            await update.message.reply_text(
+                "Maaf, terjadi kesalahan saat memulai pencarian. Silakan coba lagi nanti."
+            )
+        return ConversationHandler.END
 
 async def get_pinterest_query(update: Update, context: CallbackContext) -> int:
     await perform_pinterest_search(update.message, update.message.text, context)
@@ -162,7 +170,8 @@ async def get_pinterest_query(update: Update, context: CallbackContext) -> int:
 async def perform_pinterest_search(message, query: str, context: CallbackContext):
     status_msg = await message.reply_text(f"🔎 Mencari `{query}` di Pinterest...", parse_mode='Markdown')
     try:
-        results = PinterestDL.with_api().search(query=query, num=5)
+        # Jalankan panggilan sinkron yang memblokir di thread terpisah
+        results = await asyncio.to_thread(PinterestDL.with_api().search, query=query, num=5)
 
         await status_msg.delete()
 
@@ -199,7 +208,7 @@ async def perform_pinterest_search(message, query: str, context: CallbackContext
         else:
             await message.reply_text("Tidak ada hasil yang ditemukan di Pinterest.")
     except Exception as e:
-        logger.error(f"Error saat mencari di Pinterest: {e}")
+        logger.error(f"Error saat mencari di Pinterest: {e}", exc_info=True)
         await status_msg.edit_text("Terjadi kesalahan saat melakukan pencarian di Pinterest.")
 
 async def cancel_pinterest_search(update: Update, context: CallbackContext) -> int:
