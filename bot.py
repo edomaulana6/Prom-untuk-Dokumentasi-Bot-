@@ -2,20 +2,14 @@
 
 """
 Bot Telegram canggih untuk mengunduh media dengan yt-dlp.
-Fitur:
-- Pencarian interaktif dengan alur percakapan.
-- Hasil pencarian visual dengan thumbnail dan tombol download inline.
-- Pilihan format Video/Audio.
-- Notifikasi status unduhan dan unggahan yang andal.
-- Perintah /stop untuk mematikan bot secara aman (hanya pemilik).
-- Penanganan file yang aman dan pembersihan otomatis.
+Versi ini berisi perbaikan untuk membedakan tautan dan teks biasa.
 """
 
 import logging
 import os
 import asyncio
 from dotenv import load_dotenv
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -122,7 +116,7 @@ async def perform_search(message, query: str, context: CallbackContext):
                             chat_id=message.chat_id, photo=thumbnail_url, caption=caption,
                             parse_mode='HTML', reply_markup=reply_markup
                         )
-                    else: # Fallback jika tidak ada thumbnail
+                    else:
                         await context.bot.send_message(
                             chat_id=message.chat_id, text=caption, parse_mode='HTML', reply_markup=reply_markup
                         )
@@ -145,33 +139,27 @@ async def cancel_search(update: Update, context: CallbackContext) -> int:
 # --- Logika Unduhan ---
 
 async def handle_url(update: Update, context: CallbackContext) -> None:
-    """Mendeteksi URL dalam pesan teks menggunakan pengecekan string sederhana."""
+    """Mendeteksi URL dalam pesan teks dan menawarkan unduhan. Mengabaikan teks biasa."""
     message_text = update.message.text
 
-    # Pengecekan paling dasar untuk melihat apakah ada kemungkinan URL
     if 'http://' not in message_text and 'https://' not in message_text:
-        # Jika tidak ada, abaikan pesan ini sepenuhnya.
         return
 
-    # Jika ada kemungkinan URL, coba ekstrak kata pertama yang mengandungnya
     url = None
     for word in message_text.split():
         if word.startswith('http://') or word.startswith('https://'):
             url = word
             break
 
-    # Jika setelah dicek ternyata tidak ada URL yang valid, abaikan.
     if not url:
         return
 
-    # Buat tombol inline untuk opsi unduhan
     keyboard = [[
         InlineKeyboardButton("🎬 Video", callback_data=f"dl|video|{url}"),
         InlineKeyboardButton("🎵 Audio", callback_data=f"dl|audio|{url}"),
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Kirim balasan hanya jika URL ditemukan
     await update.message.reply_text(
         f"Tautan ditemukan: `{url}`\n\nPilih format unduhan:",
         reply_markup=reply_markup,
@@ -188,7 +176,6 @@ async def button_handler(update: Update, context: CallbackContext) -> None:
         await query.edit_message_text("❌ Terjadi kesalahan: Data tidak valid.")
         return
 
-    # Hapus tombol dari pesan asli untuk mencegah klik ganda
     if query.message.photo:
         await query.edit_message_reply_markup(reply_markup=None)
     else:
@@ -211,7 +198,6 @@ def progress_hook(d, status_message: Update.message, context: CallbackContext):
             speed = d.get('_speed_str', 'N/A').strip()
             eta = d.get('_eta_str', 'N/A').strip()
 
-            # Throttle updates to avoid hitting Telegram API limits
             now = loop.time()
             last_update = context.chat_data.get('last_update_time', 0)
             if now - last_update > 2:
@@ -275,15 +261,13 @@ async def download_media(chat_id: int, context: CallbackContext, url: str, forma
         context.chat_data.pop('last_update_time', None)
 
 def main() -> None:
-    # Muat variabel dari file .env
     load_dotenv()
-
     TOKEN = os.getenv("TELEGRAM_TOKEN")
     if not TOKEN:
-        raise ValueError("Variabel environment TELEGRAM_TOKEN tidak diatur! Buat file .env atau ekspor variabel.")
+        logger.critical("TELEGRAM_TOKEN tidak diatur!")
+        return
 
     os.makedirs('downloads', exist_ok=True)
-
     application = Application.builder().token(TOKEN).build()
 
     search_conv_handler = ConversationHandler(
