@@ -1,42 +1,42 @@
 #!/bin/bash
 
-# Skrip untuk menghentikan bot Telegram yang berjalan di latar belakang.
+# Skrip yang lebih tangguh untuk menghentikan bot Telegram.
+# Skrip ini akan mencari proses berdasarkan nama skripnya, bukan hanya dari file PID.
 
-# Tentukan nama file tempat Process ID (PID) disimpan
+BOT_SCRIPT="bot.py"
 PID_FILE="bot.pid"
 
-# Cek apakah file PID ada
-if [ ! -f "$PID_FILE" ]; then
-    echo "Bot sepertinya tidak sedang berjalan (file PID tidak ditemukan)."
-    exit 1
+echo "Mencoba menghentikan bot..."
+
+# Gunakan pkill untuk menghentikan proses bot secara andal.
+# Opsi -f membuat pkill mencocokkan seluruh baris perintah, yang lebih spesifik.
+# Ini akan mencari proses yang menjalankan "python3 -u bot.py" atau yang serupa.
+if pgrep -f "python.*$BOT_SCRIPT" > /dev/null; then
+    pkill -f "python.*$BOT_SCRIPT"
+    echo "Mengirim sinyal penghentian ke proses bot..."
+else
+    echo "Tidak ditemukan proses bot yang berjalan."
 fi
 
-# Baca PID dari file
-PID=$(cat "$PID_FILE")
-
-# Cek apakah proses dengan PID tersebut ada
-if ! ps -p $PID > /dev/null; then
-    echo "Bot sepertinya tidak sedang berjalan (proses dengan PID $PID tidak ditemukan)."
-    # Hapus file PID yang sudah tidak valid
-    rm "$PID_FILE"
-    exit 1
-fi
-
-echo "Menghentikan bot dengan PID: $PID..."
-
-# Kirim sinyal TERM (15) untuk penghentian yang halus
-kill $PID
-
-# Tunggu beberapa detik untuk membiarkan proses berhenti
+# Beri waktu sejenak agar proses benar-benar berhenti
 sleep 2
 
-# Cek lagi apakah proses sudah benar-benar berhenti
-if ps -p $PID > /dev/null; then
-    echo "Proses tidak berhenti dengan normal, memaksa berhenti (kill -9)..."
-    kill -9 $PID
+# Verifikasi apakah proses masih berjalan dan paksa berhenti jika perlu
+if pgrep -f "python.*$BOT_SCRIPT" > /dev/null; then
+    echo "Penghentian normal gagal, mencoba menghentikan secara paksa (kill -9)..."
+    pkill -9 -f "python.*$BOT_SCRIPT"
+    sleep 1
 fi
 
-# Hapus file PID
-rm "$PID_FILE"
+# Hapus file PID jika ada, untuk kebersihan
+if [ -f "$PID_FILE" ]; then
+    echo "Menghapus file PID lama."
+    rm "$PID_FILE"
+fi
 
-echo "Bot berhasil dihentikan."
+# Cek terakhir untuk konfirmasi
+if pgrep -f "python.*$BOT_SCRIPT" > /dev/null; then
+    echo "GAGAL: Proses bot masih berjalan. Mungkin perlu diperiksa secara manual."
+else
+    echo "Bot berhasil dihentikan sepenuhnya."
+fi
