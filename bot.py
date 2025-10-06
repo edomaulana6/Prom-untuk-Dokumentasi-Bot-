@@ -267,7 +267,11 @@ def main() -> None:
 
     os.makedirs('downloads', exist_ok=True)
 
-    application = Application.builder().token(TOKEN).build()
+    # Atur timeout yang lebih tinggi untuk koneksi dan pembacaan
+    # Ini membantu mencegah error TimedOut pada jaringan yang tidak stabil
+    from telegram.request import HTTPXRequest
+    request = HTTPXRequest(connect_timeout=60.0, read_timeout=60.0, write_timeout=60.0)
+    application = Application.builder().token(TOKEN).request(request).build()
 
     search_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("search", search_start)],
