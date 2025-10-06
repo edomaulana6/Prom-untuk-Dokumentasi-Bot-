@@ -43,8 +43,9 @@ async def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     await update.message.reply_html(
         f"Hai {user.mention_html()}!\n\n"
-        "Saya adalah bot pengunduh media. Kirim URL atau gunakan /search untuk mencari video.\n"
-        "Gunakan /help untuk melihat semua perintah."
+        "Saya adalah bot pengunduh media. Untuk memulai, kirimkan saya URL dari situs yang didukung (seperti YouTube, Twitter, dll.) "
+        "atau gunakan perintah /search untuk mencari video.\n\n"
+        "Gunakan /help untuk melihat semua perintah yang tersedia."
     )
 
 async def help_command(update: Update, context: CallbackContext) -> None:
@@ -145,9 +146,13 @@ async def cancel_search(update: Update, context: CallbackContext) -> int:
 # --- Logika Unduhan ---
 
 async def handle_url(update: Update, context: CallbackContext) -> None:
-    url = update.message.text
+    """Menangani URL yang dikirim langsung oleh pengguna."""
+    url = update.message.text.strip()
+    # Pemeriksaan sederhana untuk memastikan itu adalah URL sebelum menampilkan tombol.
+    # Filter yang lebih ketat akan ada di MessageHandler.
     if not (url.startswith('http://') or url.startswith('https://')):
-        await update.message.reply_text("URL tidak valid. Untuk mencari, gunakan /search.")
+        # Jangan membalas apa pun jika itu bukan URL.
+        # Biarkan bot diam untuk input teks biasa.
         return
 
     keyboard = [[
@@ -275,7 +280,10 @@ def main() -> None:
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(search_conv_handler)
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^dl\\|"))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
+
+    # Handler untuk URL, menggunakan regex untuk memfilter hanya pesan yang terlihat seperti URL.
+    url_filter = filters.Regex(r'^https?://\S+')
+    application.add_handler(MessageHandler(url_filter & ~filters.COMMAND, handle_url))
 
     logger.info("Bot siap digunakan...")
     application.run_polling()
