@@ -233,7 +233,9 @@ async def download_media(chat_id: int, context: CallbackContext, url: str, forma
 
         await status_message.edit_text(f"📤 Mengunggah `{os.path.basename(filename)}`...", parse_mode='Markdown')
 
-        timeout_settings = {'read_timeout': 120, 'write_timeout': 120, 'connect_timeout': 120}
+        # Timeout yang sangat tinggi khusus untuk unggahan file besar
+        upload_timeout = 1800  # 30 menit
+        timeout_settings = {'read_timeout': 120, 'write_timeout': upload_timeout, 'connect_timeout': 120}
         with open(filename, 'rb') as f:
             if format_choice == 'video':
                 await context.bot.send_video(
