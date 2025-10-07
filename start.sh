@@ -2,8 +2,8 @@
 
 # Skrip untuk menjalankan bot Telegram di latar belakang.
 
-# Tentukan nama file utama bot Anda
-BOT_SCRIPT="bot.py"
+# Tentukan jalur absolut ke file utama bot Anda
+BOT_SCRIPT="/app/bot.py"
 # Tentukan nama file untuk menyimpan Process ID (PID)
 PID_FILE="bot.pid"
 # Tentukan nama file untuk menyimpan log

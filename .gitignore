@@ -1,0 +1,10 @@
+# Log and process ID files
+bot.log
+bot.pid
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/

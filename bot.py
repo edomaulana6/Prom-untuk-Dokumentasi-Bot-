@@ -34,6 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# URL untuk gambar placeholder jika thumbnail tidak tersedia
+PLACEHOLDER_IMAGE_URL = "https://placehold.co/600x400/EEE/31343C?text=Video"
+
 # State untuk ConversationHandler
 GET_QUERY = range(1)
 
@@ -116,18 +119,17 @@ async def perform_search(message, query: str, context: CallbackContext):
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
+                # Gunakan thumbnail asli jika ada, jika tidak, gunakan placeholder.
+                photo_url = thumbnail_url or PLACEHOLDER_IMAGE_URL
                 try:
-                    if thumbnail_url:
-                        await context.bot.send_photo(
-                            chat_id=message.chat_id, photo=thumbnail_url, caption=caption,
-                            parse_mode='HTML', reply_markup=reply_markup
-                        )
-                    else: # Fallback jika tidak ada thumbnail
-                        await context.bot.send_message(
-                            chat_id=message.chat_id, text=caption, parse_mode='HTML', reply_markup=reply_markup
-                        )
+                    await context.bot.send_photo(
+                        chat_id=message.chat_id, photo=photo_url, caption=caption,
+                        parse_mode='HTML', reply_markup=reply_markup
+                    )
                 except Exception as e:
-                    logger.error(f"Gagal mengirim hasil pencarian: {e}. Mengirim sebagai teks.")
+                    # Jika pengiriman foto (baik asli maupun placeholder) gagal,
+                    # kirim pesan sebagai teks biasa.
+                    logger.error(f"Gagal mengirim foto ({photo_url}): {e}. Mengirim sebagai teks.")
                     await context.bot.send_message(
                         chat_id=message.chat_id, text=caption, parse_mode='HTML', reply_markup=reply_markup
                     )
