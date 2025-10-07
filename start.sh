@@ -25,11 +25,12 @@ fi
 
 echo "Memulai bot..."
 
-# Aktifkan virtual environment jika ada
-if [ -d "venv" ]; then
-    echo "Mengaktifkan virtual environment..."
-    source venv/bin/activate
-fi
+# Logika Virtual Environment sengaja dinonaktifkan untuk memastikan
+# bot berjalan di lingkungan Python global di mana dependensi telah diinstal.
+# if [ -d "venv" ]; then
+#     echo "Mengaktifkan virtual environment..."
+#     source venv/bin/activate
+# fi
 
 # Jalankan bot di latar belakang menggunakan nohup
 # nohup memastikan proses tetap berjalan bahkan setelah terminal ditutup

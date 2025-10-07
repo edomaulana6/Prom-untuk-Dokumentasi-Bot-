@@ -43,8 +43,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     await update.message.reply_html(
         f"Hai {user.mention_html()}!\n\n"
-        "Saya adalah bot pengunduh media. Untuk memulai, kirimkan saya URL dari situs yang didukung (seperti YouTube, Twitter, dll.) "
-        "atau gunakan perintah /search untuk mencari video.\n\n"
+        "Saya adalah bot pengunduh media. Gunakan perintah /search untuk mencari video, atau /unduh <URL> untuk mengunduh langsung.\n\n"
         "Gunakan /help untuk melihat semua perintah yang tersedia."
     )
 
@@ -53,9 +52,9 @@ async def help_command(update: Update, context: CallbackContext) -> None:
         "Perintah yang tersedia:\n"
         "/start - Memulai bot\n"
         "/help - Menampilkan pesan ini\n"
-        "/search - Memulai pencarian video interaktif\n"
-        "/stop - Menghentikan bot (hanya pemilik)\n\n"
-        "Kirimkan URL video untuk diunduh."
+        "/search <query> - Mencari video\n"
+        "/unduh <URL> - Mengunduh video atau audio dari URL\n"
+        "/stop - Menghentikan bot (hanya pemilik)"
     )
 
 async def stop(update: Update, context: CallbackContext) -> None:
@@ -143,23 +142,30 @@ async def cancel_search(update: Update, context: CallbackContext) -> int:
     return ConversationHandler.END
 
 
-# --- Logika Unduhan ---
+async def unduh(update: Update, context: CallbackContext) -> None:
+    """Menangani perintah /unduh untuk mengunduh dari URL."""
+    if not context.args:
+        await update.message.reply_text(
+            "Gunakan perintah ini dengan URL. Contoh:\n"
+            "/unduh https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        )
+        return
 
-async def handle_url(update: Update, context: CallbackContext) -> None:
-    """Menangani URL yang dikirim langsung oleh pengguna."""
-    url = update.message.text.strip()
-    # Pemeriksaan sederhana untuk memastikan itu adalah URL sebelum menampilkan tombol.
-    # Filter yang lebih ketat akan ada di MessageHandler.
+    url = context.args[0]
     if not (url.startswith('http://') or url.startswith('https://')):
-        # Jangan membalas apa pun jika itu bukan URL.
-        # Biarkan bot diam untuk input teks biasa.
+        await update.message.reply_text(
+            "URL yang Anda berikan tidak valid. Pastikan diawali dengan http:// atau https://"
+        )
         return
 
     keyboard = [[
         InlineKeyboardButton("🎬 Video", callback_data=f"dl|video|{url}"),
         InlineKeyboardButton("🎵 Audio", callback_data=f"dl|audio|{url}"),
     ]]
-    await update.message.reply_text('Pilih format unduhan:', reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text('Pilih format unduhan untuk URL yang diberikan:', reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+# --- Logika Unduhan ---
 
 async def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -284,12 +290,11 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("stop", stop))
+    application.add_handler(CommandHandler("unduh", unduh))
     application.add_handler(search_conv_handler)
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^dl\\|"))
 
-    # Handler untuk URL, menggunakan regex untuk memfilter hanya pesan yang terlihat seperti URL.
-    url_filter = filters.Regex(r'^https?://\S+')
-    application.add_handler(MessageHandler(url_filter & ~filters.COMMAND, handle_url))
+    # Handler untuk URL otomatis telah dihapus. Unduhan sekarang hanya melalui /unduh.
 
     logger.info("Bot siap digunakan...")
     application.run_polling()
