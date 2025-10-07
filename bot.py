@@ -146,9 +146,6 @@ async def cancel_search(update: Update, context: CallbackContext) -> int:
 
 async def handle_url(update: Update, context: CallbackContext) -> None:
     url = update.message.text
-    if not (url.startswith('http://') or url.startswith('https://')):
-        await update.message.reply_text("URL tidak valid. Untuk mencari, gunakan /search.")
-        return
 
     keyboard = [[
         InlineKeyboardButton("🎬 Video", callback_data=f"dl|video|{url}"),
@@ -275,7 +272,8 @@ def main() -> None:
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(search_conv_handler)
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^dl\\|"))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
+    # Filter URL yang lebih spesifik untuk menghindari konflik dengan input pencarian
+    application.add_handler(MessageHandler(filters.Regex(r'^https?://\S+'), handle_url))
 
     logger.info("Bot siap digunakan...")
     application.run_polling()

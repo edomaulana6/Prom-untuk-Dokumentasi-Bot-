@@ -1,0 +1,54 @@
+2025-10-07 09:18:18,036 - __main__ - INFO - Bot siap digunakan...
+2025-10-07 09:18:18,415 - httpx - INFO - HTTP Request: POST https://api.telegram.org/botYOUR_TELEGRAM_BOT_TOKEN/getMe "HTTP/1.1 404 Not Found"
+Traceback (most recent call last):
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/_bot.py", line 768, in initialize
+    await self.get_me()
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 1873, in get_me
+    return await super().get_me(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/_bot.py", line 542, in decorator
+    result = await func(self, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/_bot.py", line 903, in get_me
+    result = await self._post(
+             ^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/_bot.py", line 630, in _post
+    return await self._do_post(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/_bot.py", line 658, in _do_post
+    return await request.post(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/request/_baserequest.py", line 200, in post
+    result = await self._request_wrapper(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/request/_baserequest.py", line 377, in _request_wrapper
+    raise InvalidToken(message)
+telegram.error.InvalidToken: Not Found
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/bot.py", line 283, in <module>
+    main()
+  File "/app/bot.py", line 279, in main
+    application.run_polling()
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/ext/_application.py", line 836, in run_polling
+    return self.__run(
+           ^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/ext/_application.py", line 1036, in __run
+    raise exc
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/ext/_application.py", line 1025, in __run
+    loop.run_until_complete(self.initialize())
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/ext/_application.py", line 495, in initialize
+    await self.bot.initialize()
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 293, in initialize
+    await super().initialize()
+  File "/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/telegram/_bot.py", line 770, in initialize
+    raise InvalidToken(f"The token `{self._token}` was rejected by the server.") from exc
+telegram.error.InvalidToken: The token `YOUR_TELEGRAM_BOT_TOKEN` was rejected by the server.
