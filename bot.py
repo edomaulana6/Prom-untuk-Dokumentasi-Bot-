@@ -11,9 +11,12 @@ Fitur:
 - Penanganan file yang aman dan pembersihan otomatis.
 """
 
+# Impor pustaka standar
 import logging
 import os
 import asyncio
+
+# Impor pustaka pihak ketiga
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -117,6 +120,7 @@ async def perform_search(message, query: str, context: CallbackContext):
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
                 try:
+                    # InputMediaPhoto tidak digunakan, jadi saya hapus dari impor
                     if thumbnail_url:
                         await context.bot.send_photo(
                             chat_id=message.chat_id, photo=thumbnail_url, caption=caption,
