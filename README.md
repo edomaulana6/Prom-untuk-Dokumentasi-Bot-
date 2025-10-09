@@ -1,35 +1,31 @@
-# Bot Telegram Serbaguna
+# Bot Telegram Jadwal Sholat
 
-Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan interaktif. Mulai dari jadwal sholat, pencarian gambar, hingga jadwal acara JKT48.
+Bot Telegram sederhana dan stabil yang dirancang untuk menyediakan jadwal sholat di seluruh Indonesia. Bot ini dibuat agar ringan dan dapat diandalkan, terutama untuk dijalankan di lingkungan seperti Termux.
 
 ## Fitur
 
--   **/jadwal_azan <daerah>**: Mencari jadwal sholat untuk daerah tertentu di Indonesia. Jika daerah tidak disebutkan, bot akan bertanya balik.
--   **/cari_foto <query>**: Mencari dan menampilkan 5 gambar teratas dari Pinterest berdasarkan kata kunci yang diberikan. Jika kata kunci tidak ada, bot akan bertanya.
--   **/jadwal_konser**: Menampilkan jadwal pertunjukan teater dan event/konser JKT48 yang akan datang, diambil langsung dari situs resmi.
--   **/jadwal_live**: Memberikan informasi bahwa fitur jadwal live streaming dari Showroom sedang dalam pengembangan.
+-   **/jadwal_azan <daerah>**: Mencari jadwal sholat untuk daerah tertentu di Indonesia. Jika nama daerah tidak disebutkan, bot akan bertanya balik untuk memastikan Anda mendapatkan jadwal yang benar.
 
 ## Struktur Proyek
 
 ```
 .
 ├── bot.py              # Kode utama bot
-├── requirements.txt    # Daftar dependensi Python
+├── requirements.txt    # Daftar dependensi Python yang ringan
 ├── start.sh            # Skrip untuk menjalankan bot di latar belakang
 ├── stop.sh             # Skrip untuk menghentikan bot
 ├── .env                # File konfigurasi (dibuat oleh pengguna)
 ├── bot.log             # File log (dibuat oleh start.sh)
-├── bot.pid             # File PID (dibuat oleh start.sh)
-└── README.md           # Dokumentasi ini
+└── bot.pid             # File PID (dibuat oleh start.sh)
 ```
 
-## Instalasi
+## Instalasi di Termux
 
 ### Prasyarat
 
--   Server atau mesin Linux (termasuk Termux di Android).
+-   Termux di Android.
 -   Python 3.8 atau lebih baru.
--   `pip` (manajer paket Python).
+-   `git` (biasanya sudah terinstal di Termux).
 
 ### Langkah-langkah Instalasi
 
@@ -39,16 +35,23 @@ Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan
     cd <NAMA_DIREKTORI>
     ```
 
-2.  **Instal dependensi Python.**
+2.  **Buat Virtual Environment (Sangat Direkomendasikan):**
+    Ini akan mengisolasi dependensi bot Anda dan mencegah konflik.
     ```bash
-    pip install -r requirements.txt
+    python3 -m venv venv
     ```
 
-3.  **Instal dependensi sistem dan browser untuk Playwright.**
-    Ini adalah langkah **wajib** agar fitur `/cari_foto` dan `/jadwal_konser` dapat berfungsi.
+3.  **Aktifkan Virtual Environment:**
+    Setiap kali Anda ingin bekerja dengan bot (menginstal dependensi atau menjalankannya), Anda harus mengaktifkan venv terlebih dahulu.
     ```bash
-    playwright install-deps
-    playwright install
+    source venv/bin/activate
+    ```
+    Anda akan melihat `(venv)` di awal prompt terminal Anda.
+
+4.  **Instal dependensi Python.**
+    Pastikan Anda berada di dalam `venv` yang aktif, lalu jalankan:
+    ```bash
+    pip install -r requirements.txt
     ```
 
 ## Konfigurasi
@@ -64,11 +67,11 @@ Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan
     TELEGRAM_TOKEN="12345:ABC-DEF12345"
     ```
 
-## Menjalankan Bot
+## Menjalankan Bot di Termux
 
-### Menggunakan Skrip Start/Stop (Direkomendasikan)
+### Menggunakan Skrip Start/Stop
 
-Skrip ini memungkinkan bot berjalan di latar belakang dan tetap hidup meskipun Anda menutup terminal (misalnya di Termux atau server).
+Cara terbaik untuk menjalankan bot agar tetap hidup bahkan setelah Anda menutup Termux.
 
 1.  **Berikan izin eksekusi pada skrip.**
     ```bash
@@ -77,13 +80,14 @@ Skrip ini memungkinkan bot berjalan di latar belakang dan tetap hidup meskipun A
     ```
 
 2.  **Mulai Bot.**
+    Skrip ini akan secara otomatis mengaktifkan `venv` Anda sebelum menjalankan bot.
     ```bash
     ./start.sh
     ```
-    Bot akan berjalan di latar belakang. Progres dan error akan dicatat di `bot.log`.
+    Bot akan berjalan di latar belakang.
 
 3.  **Melihat Log.**
-    Untuk memantau aktivitas bot secara real-time:
+    Untuk memantau aktivitas bot atau melihat pesan error:
     ```bash
     tail -f bot.log
     ```
@@ -92,9 +96,3 @@ Skrip ini memungkinkan bot berjalan di latar belakang dan tetap hidup meskipun A
     ```bash
     ./stop.sh
     ```
-
-### Menjalankan Secara Manual (Untuk Debugging)
-Jalankan perintah ini hanya untuk testing atau debugging. Bot akan berhenti jika Anda menutup terminal.
-```bash
-python3 bot.py
-```
