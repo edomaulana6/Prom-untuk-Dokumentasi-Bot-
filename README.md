@@ -1,44 +1,21 @@
-# Bot Telegram Pengunduh Media Canggih dengan yt-dlp
+# Bot Telegram Serbaguna
 
-Bot Telegram ini adalah solusi lengkap untuk mengunduh video dan audio dari berbagai platform yang didukung `yt-dlp`. Dibuat dengan Python, bot ini menawarkan pengalaman pengguna yang interaktif dan visual, serta kemudahan pengelolaan bagi pemiliknya.
+Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan interaktif. Mulai dari jadwal sholat, pencarian gambar, hingga jadwal acara JKT48.
 
-![Contoh Penggunaan Bot](https://i.imgur.com/example.png) <!-- Placeholder untuk screenshot -->
+## Fitur
 
-## Daftar Isi
-- [Fitur Unggulan](#fitur-unggulan)
-- [Struktur Proyek](#struktur-proyek)
-- [Instalasi](#instalasi)
-  - [Prasyarat](#prasyarat)
-  - [Langkah-langkah Instalasi](#langkah-langkah-instalasi)
-- [Konfigurasi](#konfigurasi)
-  - [Mendapatkan ID Pengguna (OWNER_ID)](#mendapatkan-id-pengguna-owner_id)
-- [Menjalankan Bot](#menjalankan-bot)
-  - [Menggunakan Skrip Start/Stop (Direkomendasikan)](#menggunakan-skrip-startstop-direkomendasikan)
-  - [Menjalankan Secara Manual](#menjalankan-secara-manual)
-- [Cara Penggunaan](#cara-penggunaan)
-  - [Perintah Bot](#perintah-bot)
-- [Penjelasan Kode](#penjelasan-kode)
-- [Tips Keamanan dan Optimasi](#tips-keamanan-dan-optimasi)
-
-## Fitur Unggulan
-
-- **Pencarian Visual & Interaktif**: Hasil pencarian YouTube ditampilkan dengan **thumbnail video**, judul, durasi, dan tombol unduh **Video/Audio** individual.
-- **Alur Percakapan Cerdas**: Jika perintah `/search` dijalankan tanpa kata kunci, bot akan bertanya balik "Apa yang ingin Anda cari?".
-- **Unduhan Langsung dari URL**: Cukup kirim URL dari situs yang didukung `yt-dlp` untuk mendapatkan pilihan unduhan Video atau Audio.
-- **Notifikasi Real-time**: Pengguna akan melihat status proses yang jelas: "Mengunduh", "Mengunggah", dan notifikasi progres yang informatif.
-- **Pengelolaan Mudah**: Dilengkapi skrip `start.sh` dan `stop.sh` untuk menjalankan bot di latar belakang dengan mudah.
-- **Kontrol Penuh Pemilik**: Perintah `/stop` yang aman hanya dapat diakses oleh pemilik bot yang telah ditentukan.
-- **Andal dan Stabil**: Penanganan error yang canggih untuk menginformasikan pengguna jika terjadi masalah, serta pembersihan file otomatis untuk menjaga server tetap bersih.
+-   **/jadwal_azan <daerah>**: Mencari jadwal sholat untuk daerah tertentu di Indonesia. Jika daerah tidak disebutkan, bot akan bertanya balik.
+-   **/cari_foto <query>**: Mencari dan menampilkan 5 gambar teratas dari Pinterest berdasarkan kata kunci yang diberikan. Jika kata kunci tidak ada, bot akan bertanya.
+-   **/jadwal_konser**: Menampilkan jadwal pertunjukan teater dan event/konser JKT48 yang akan datang, diambil langsung dari situs resmi.
+-   **/jadwal_live**: Memberikan informasi bahwa fitur jadwal live streaming dari Showroom sedang dalam pengembangan.
 
 ## Struktur Proyek
+
 ```
 .
 ├── bot.py              # Kode utama bot
 ├── requirements.txt    # Daftar dependensi Python
-├── start.sh            # Skrip untuk menjalankan bot di latar belakang
-├── stop.sh             # Skrip untuk menghentikan bot
-├── bot.log             # File log (dibuat oleh start.sh)
-├── bot.pid             # File PID (dibuat oleh start.sh)
+├── .env                # File konfigurasi (dibuat oleh pengguna)
 └── README.md           # Dokumentasi ini
 ```
 
@@ -46,19 +23,9 @@ Bot Telegram ini adalah solusi lengkap untuk mengunduh video dan audio dari berb
 
 ### Prasyarat
 
-- Server atau mesin Linux (direkomendasikan untuk menjalankan bot 24/7).
-- Python 3.8 atau lebih baru.
-- `pip` (manajer paket Python).
-- `git` (untuk mengkloning repositori).
-- **FFmpeg**: Sangat penting untuk mengonversi audio ke format `.mp3`.
-  - **Untuk Linux (Debian/Ubuntu):**
-    ```bash
-    sudo apt update && sudo apt install ffmpeg
-    ```
-  - **Untuk Termux (Android):**
-    ```bash
-    pkg update && pkg install ffmpeg
-    ```
+-   Server atau mesin Linux.
+-   Python 3.8 atau lebih baru.
+-   `pip` (manajer paket Python).
 
 ### Langkah-langkah Instalasi
 
@@ -68,130 +35,36 @@ Bot Telegram ini adalah solusi lengkap untuk mengunduh video dan audio dari berb
     cd <NAMA_DIREKTORI>
     ```
 
-2.  **Buat dan aktifkan virtual environment (sangat direkomendasikan).**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-3.  **Instal dependensi Python.**
-    File `requirements.txt` harus berisi:
-    ```
-    python-telegram-bot==20.8
-    yt-dlp
-    ```
-    Jalankan perintah instalasi:
+2.  **Instal dependensi Python.**
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Instal `yt-dlp` versi terbaru langsung dari GitHub (sesuai permintaan).**
-    Ini memastikan Anda mendapatkan perbaikan terbaru yang belum dirilis di `pip`.
+3.  **Instal dependensi sistem dan browser untuk Playwright.**
+    Ini adalah langkah **wajib** agar fitur `/cari_foto` dan `/jadwal_konser` dapat berfungsi.
     ```bash
-    pip install --upgrade "git+https://github.com/yt-dlp/yt-dlp.git"
+    playwright install-deps
+    playwright install
     ```
-
-## Mengatur Perintah di @BotFather
-
-Untuk membuat bot Anda lebih mudah digunakan, Anda bisa mengatur daftar perintah yang muncul saat pengguna mengetik `/`.
-
-1.  Buka @BotFather di Telegram.
-2.  Kirim perintah `/setcommands`.
-3.  Pilih bot Anda.
-4.  Kirimkan teks berikut dalam satu pesan:
-    ```
-    start - Memulai bot dan menampilkan pesan selamat datang
-    help - Menampilkan daftar perintah yang tersedia
-    search - Mencari video di YouTube secara interaktif
-    ```
-
-Perintah `/stop` sengaja tidak dimasukkan agar tidak terlihat oleh pengguna biasa, namun tetap akan berfungsi untuk Anda sebagai pemilik.
 
 ## Konfigurasi
 
-Cara termudah dan paling direkomendasikan untuk mengonfigurasi bot adalah menggunakan file `.env`.
-
-1.  **Buat file `.env`** di direktori yang sama dengan `bot.py`.
+1.  **Buat file `.env`** di direktori root proyek.
     ```bash
     touch .env
     ```
 
-2.  **Isi file `.env`** dengan konten berikut, ganti dengan nilai Anda sendiri:
+2.  **Isi file `.env`** dengan token bot Anda.
     ```dotenv
-    # Ganti dengan token bot Anda dari @BotFather
+    # Ganti dengan token bot Anda yang didapat dari @BotFather
     TELEGRAM_TOKEN="12345:ABC-DEF12345"
-
-    # Ganti dengan ID pengguna Telegram Anda (lihat cara mendapatkannya di bawah)
-    OWNER_ID="123456789"
     ```
-    **Penting:** Jangan gunakan tanda kutip (`"`) di sekitar nilai di dalam file `.env`. Bot akan secara otomatis memuat variabel-variabel ini saat dijalankan.
-
-### Mendapatkan ID Pengguna (OWNER_ID)
-1. Buka aplikasi Telegram.
-2. Cari bot bernama `@userinfobot`.
-3. Kirim pesan `/start` ke bot tersebut.
-4. Bot akan membalas dengan informasi akun Anda, termasuk `Id`. Salin nomor tersebut.
 
 ## Menjalankan Bot
 
-### Menggunakan Skrip Start/Stop (Direkomendasikan)
-
-Skrip ini memungkinkan bot berjalan di latar belakang dan tetap hidup meskipun Anda menutup terminal.
-
-1.  **Jadikan skrip eksekutable.**
-    ```bash
-    chmod +x start.sh
-    chmod +x stop.sh
-    ```
-
-2.  **Mulai Bot.**
-    Pastikan variabel environment (`TELEGRAM_TOKEN` dan `OWNER_ID`) sudah diatur.
-    ```bash
-    ./start.sh
-    ```
-    Bot akan berjalan di latar belakang. Progres dan error akan dicatat di `bot.log`.
-
-3.  **Melihat Log.**
-    Untuk memantau aktivitas bot secara real-time:
-    ```bash
-    tail -f bot.log
-    ```
-
-4.  **Hentikan Bot.**
-    ```bash
-    ./stop.sh
-    ```
-
-### Menjalankan Secara Manual
-Jalankan perintah ini hanya untuk testing atau debugging. Bot akan berhenti jika Anda menutup terminal.
+Jalankan bot secara langsung untuk pengembangan atau debugging.
 ```bash
 python3 bot.py
 ```
 
-## Cara Penggunaan
-
-### Perintah Bot
-
--   `/start`: Memulai interaksi dengan bot.
--   `/help`: Menampilkan daftar perintah.
--   `/search <kata kunci>`: Mencari video di YouTube. Hasilnya akan berupa 5 video teratas dengan thumbnail dan tombol unduh. Jika kata kunci tidak diberikan, bot akan menanyakannya.
--   `/stop`: Menghentikan bot (hanya bisa dijalankan oleh `OWNER_ID`).
--   **Kirim URL**: Langsung kirim URL dari platform yang didukung `yt-dlp` (YouTube, Twitter, dll.) untuk mendapatkan opsi unduh Video/Audio.
-
-## Penjelasan Kode
-
--   `bot.py`: Menggunakan `python-telegram-bot` (v20+).
-    -   `ConversationHandler`: Mengelola alur pencarian interaktif.
-    -   `CallbackQueryHandler`: Menangani semua interaksi tombol (pilihan format, unduhan dari hasil pencarian).
-    -   `asyncio.create_task`: Menjalankan proses unduhan dan unggahan secara asinkron agar bot tidak macet.
-    -   `yt_dlp`: Dipanggil di dalam *thread* sinkron untuk melakukan pekerjaan berat (mengunduh).
-    -   **Struktur Direktori**: File yang diunduh disimpan sementara di direktori `downloads/` dan dihapus secara otomatis setelah diunggah atau jika terjadi error.
-
-## Tips Keamanan dan Optimasi
-
--   **Keamanan**: Selalu gunakan *environment variable* untuk data sensitif. Perintah `/stop` dilindungi dan hanya merespons `OWNER_ID`.
--   **Resource Server**: Unduhan video bisa memakan banyak CPU dan bandwidth. Batasan resolusi `720p` di dalam kode membantu mengurangi beban.
--   **Pembaruan**: `yt-dlp` sering diperbarui untuk mengatasi perubahan pada situs web. Jalankan perintah instalasi dari GitHub secara berkala untuk menjaga bot tetap berfungsi:
-    ```bash
-    pip install --upgrade "git+https://github.com/yt-dlp/yt-dlp.git"
-    ```
+Untuk menjalankan bot di latar belakang secara permanen, disarankan menggunakan manajer proses seperti `systemd` atau `screen`.
