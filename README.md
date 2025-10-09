@@ -15,7 +15,11 @@ Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan
 .
 ├── bot.py              # Kode utama bot
 ├── requirements.txt    # Daftar dependensi Python
+├── start.sh            # Skrip untuk menjalankan bot di latar belakang
+├── stop.sh             # Skrip untuk menghentikan bot
 ├── .env                # File konfigurasi (dibuat oleh pengguna)
+├── bot.log             # File log (dibuat oleh start.sh)
+├── bot.pid             # File PID (dibuat oleh start.sh)
 └── README.md           # Dokumentasi ini
 ```
 
@@ -23,7 +27,7 @@ Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan
 
 ### Prasyarat
 
--   Server atau mesin Linux.
+-   Server atau mesin Linux (termasuk Termux di Android).
 -   Python 3.8 atau lebih baru.
 -   `pip` (manajer paket Python).
 
@@ -62,9 +66,35 @@ Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan
 
 ## Menjalankan Bot
 
-Jalankan bot secara langsung untuk pengembangan atau debugging.
+### Menggunakan Skrip Start/Stop (Direkomendasikan)
+
+Skrip ini memungkinkan bot berjalan di latar belakang dan tetap hidup meskipun Anda menutup terminal (misalnya di Termux atau server).
+
+1.  **Berikan izin eksekusi pada skrip.**
+    ```bash
+    chmod +x start.sh
+    chmod +x stop.sh
+    ```
+
+2.  **Mulai Bot.**
+    ```bash
+    ./start.sh
+    ```
+    Bot akan berjalan di latar belakang. Progres dan error akan dicatat di `bot.log`.
+
+3.  **Melihat Log.**
+    Untuk memantau aktivitas bot secara real-time:
+    ```bash
+    tail -f bot.log
+    ```
+
+4.  **Hentikan Bot.**
+    ```bash
+    ./stop.sh
+    ```
+
+### Menjalankan Secara Manual (Untuk Debugging)
+Jalankan perintah ini hanya untuk testing atau debugging. Bot akan berhenti jika Anda menutup terminal.
 ```bash
 python3 bot.py
 ```
-
-Untuk menjalankan bot di latar belakang secara permanen, disarankan menggunakan manajer proses seperti `systemd` atau `screen`.
