@@ -4,7 +4,7 @@
 Bot Telegram Serbaguna
 Fitur:
 - /jadwal_azan <daerah>
-- /cari_foto <query>
+- /cari_foto <query>  (menggunakan Bing Images, tanpa Playwright)
 - /jadwal_konser
 - /jadwal_live
 """
@@ -14,8 +14,10 @@ import os
 from datetime import datetime
 from typing import List
 from urllib.parse import quote_plus
+import json
 
 import httpx
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from telegram import InputMediaPhoto, Update
 from telegram.constants import ParseMode
@@ -37,9 +39,6 @@ logger = logging.getLogger(__name__)
 # States untuk ConversationHandlers
 GET_REGION, GET_PHOTO_QUERY = range(2)
 
-# --- Impor untuk Playwright ---
-from playwright.async_api import async_playwright
-
 # --- Handler Perintah Utama ---
 
 
@@ -59,7 +58,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await message.reply_text(
             "Perintah yang tersedia:\n"
             "/jadwal_azan <daerah> - Mencari jadwal sholat.\n"
-            "/cari_foto <query> - Mencari foto di Pinterest.\n"
+            "/cari_foto <query> - Mencari foto (menggunakan Bing Images).\n"
             "/jadwal_konser - Menampilkan jadwal teater dan event JKT48.\n"
             "/jadwal_live - (Dalam Pengembangan) Info jadwal live streaming JKT48."
         )
@@ -70,14 +69,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def jadwal_azan_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Memulai alur untuk mendapatkan jadwal azan."""
-    # Ambil daerah dari argumen jika ada
     region = " ".join(context.args) if getattr(context, "args", None) else ""
 
     if region:
         await fetch_and_send_prayer_times(update, context, region)
         return ConversationHandler.END
 
-    # Jika tidak ada argumen, tanya pengguna
     message = update.effective_message
     if message:
         await message.reply_text("Anda ingin mencari jadwal sholat untuk daerah mana?")
@@ -99,14 +96,12 @@ async def fetch_and_send_prayer_times(
     if not message:
         return
 
-    # Tampilkan status awal menggunakan Markdown (safe)
     status_msg = await message.reply_text(
         f"⏳ Mencari jadwal sholat untuk `{region}`...", parse_mode=ParseMode.MARKDOWN
     )
 
     try:
         encoded_region = quote_plus(region.strip())
-        # 1. Cari ID kota
         async with httpx.AsyncClient(timeout=10.0) as client:
             search_url = f"https://api.myquran.com/v1/sholat/kota/cari/{encoded_region}"
             resp = await client.get(search_url)
@@ -121,11 +116,10 @@ async def fetch_and_send_prayer_times(
         city_id = city_info.get("id")
         city_name = city_info.get("lokasi", region)
 
-        # 2. Dapatkan jadwal sholat berdasarkan ID kota
         today = datetime.now()
         date_str = today.strftime("%Y/%m/%d")
-
         prayer_url = f"https://api.myquran.com/v1/sholat/jadwal/{city_id}/{date_str}"
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(prayer_url)
             resp.raise_for_status()
@@ -167,91 +161,105 @@ async def fetch_and_send_prayer_times(
         await status_msg.edit_text("Terjadi kesalahan yang tidak diketahui.")
 
 
-# --- Logika untuk /cari_foto ---
+# --- Logika untuk /cari_foto (menggunakan Bing Images, tanpa Playwright) ---
 
 
 async def cari_foto_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Memulai alur untuk mencari foto di Pinterest."""
+    """Memulai alur untuk mencari foto."""
     query = " ".join(context.args) if getattr(context, "args", None) else ""
     if query:
-        await fetch_and_send_pinterest_images(update, context, query)
+        await fetch_and_send_pictures(update, context, query)
         return ConversationHandler.END
 
     message = update.effective_message
     if message:
-        await message.reply_text("Anda ingin mencari foto apa di Pinterest?")
+        await message.reply_text("Anda ingin mencari foto apa?")
     return GET_PHOTO_QUERY
 
 
 async def get_photo_query_and_fetch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Mendapatkan query dari pengguna dan memulai pencarian."""
     query = update.effective_message.text if update.effective_message else ""
-    await fetch_and_send_pinterest_images(update, context, query)
+    await fetch_and_send_pictures(update, context, query)
     return ConversationHandler.END
 
 
-async def fetch_and_send_pinterest_images(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, query: str
-):
-    """Mengambil dan mengirim gambar dari Pinterest menggunakan Playwright."""
+async def fetch_images_from_bing(query: str, limit: int = 5) -> List[str]:
+    """
+    Ambil URL gambar dari Bing Images hasil pencarian.
+    Mengambil attribut 'm' pada elemen hasil (JSON) yang berisi field 'murl'.
+    Tidak menggunakan Playwright.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36"
+    }
+    encoded_q = quote_plus(query)
+    url = f"https://www.bing.com/images/search?q={encoded_q}&form=HDRSC2"
+
+    image_urls: List[str] = []
+    async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        html = resp.text
+
+    soup = BeautifulSoup(html, "html.parser")
+    # Elemen hasil gambar di Bing menyimpan metadata json di atribut 'm' pada tag <a class="iusc" ...>
+    anchors = soup.select("a.iusc")
+    for a in anchors:
+        m = a.get("m")
+        if not m:
+            continue
+        try:
+            data = json.loads(m)
+            murl = data.get("murl") or data.get("turl")
+            if murl and murl not in image_urls:
+                image_urls.append(murl)
+                if len(image_urls) >= limit:
+                    break
+        except Exception:
+            continue
+
+    # Fallback: cari tag img langsung jika tidak cukup hasil
+    if len(image_urls) < limit:
+        for img in soup.select("img"):
+            src = img.get("src") or img.get("data-src")
+            if src and src.startswith("http") and src not in image_urls:
+                image_urls.append(src)
+                if len(image_urls) >= limit:
+                    break
+
+    return image_urls
+
+
+async def fetch_and_send_pictures(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str):
+    """Mencari gambar dan mengirim ke chat (menggunakan Bing Images)."""
     message = update.effective_message
     if not message:
         return
 
-    status_msg = await message.reply_text(
-        f"🔎 Mencari foto '{query}' di Pinterest...", parse_mode=ParseMode.MARKDOWN
-    )
+    status_msg = await message.reply_text(f"🔎 Mencari foto '{query}'...", parse_mode=ParseMode.MARKDOWN)
 
-    image_urls: List[str] = []
-    browser = None
     try:
-        encoded_q = quote_plus(query.strip())
-        search_url = f"https://www.pinterest.com/search/pins/?q={encoded_q}&rs=typed"
-
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(search_url, timeout=15000)
-            await page.wait_for_timeout(2500)  # Tunggu konten dimuat
-
-            # Selector untuk menemukan gambar di halaman hasil pencarian
-            locators = page.locator('div[data-test-id="pin-visual-wrapper"] img')
-            count = await locators.count()
-
-            if count == 0:
-                await status_msg.edit_text("Tidak ada foto yang ditemukan.")
-                return
-
-            # Ambil maksimal 5 URL gambar
-            for i in range(min(5, count)):
-                img_locator = locators.nth(i)
-                src = await img_locator.get_attribute("src")
-                if src:
-                    image_urls.append(src)
-
-    except Exception:
-        logger.exception("Error saat scraping Pinterest")
-        await status_msg.edit_text("Terjadi kesalahan saat mencari foto di Pinterest.")
+        image_urls = await fetch_images_from_bing(query, limit=5)
+    except httpx.RequestError:
+        logger.exception("Gagal mengambil hasil pencarian gambar dari Bing")
+        await status_msg.edit_text("Terjadi kesalahan jaringan saat mencari gambar.")
         return
-    finally:
-        if browser:
-            try:
-                await browser.close()
-            except Exception:
-                logger.debug("Browser already closed or failed to close")
+    except Exception:
+        logger.exception("Gagal mengambil gambar")
+        await status_msg.edit_text("Terjadi kesalahan saat mencari gambar.")
+        return
 
     if not image_urls:
-        await status_msg.edit_text("Gagal mengekstrak URL gambar dari Pinterest.")
+        await status_msg.edit_text("Tidak ada foto yang ditemukan.")
         return
 
-    # Hapus pesan status sebelum mengirim gambar
+    # Hapus pesan status sebelum mengirim gambar (tidak krusial jika gagal)
     try:
         await status_msg.delete()
     except Exception:
-        # tidak kritikal jika gagal menghapus
         pass
 
-    # Kirim gambar: jika satu, gunakan send_photo, jika lebih gunakan send_media_group
     chat_id = update.effective_chat.id if update.effective_chat else None
     if not chat_id:
         return
@@ -324,36 +332,30 @@ async def jadwal_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def scrape_jkt48_schedule(url: str) -> List[dict]:
-    """Fungsi generik untuk scrape jadwal dari situs JKT48."""
+    """Fungsi generik untuk scrape jadwal dari situs JKT48 (tanpa Playwright)."""
     schedule_items: List[dict] = []
-    browser = None
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36"
+    }
     try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(url, timeout=15000)
+        async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            html = resp.text
 
-            # Cari semua entri jadwal
-            entries = await page.locator(".entry-schedule__item").all()
-            for entry in entries:
-                title_element = entry.locator(".entry-schedule__item--title a")
-                date_element = entry.locator(".entry-schedule__item--date")
-
-                title = await title_element.inner_text()
-                date_info = await date_element.inner_text()
-                # Bersihkan dan format tanggal
-                date = " ".join(date_info.split("\n"))
-
-                schedule_items.append({"title": title.strip(), "date": date.strip()})
+        soup = BeautifulSoup(html, "html.parser")
+        entries = soup.select(".entry-schedule__item")
+        for entry in entries:
+            title_el = entry.select_one(".entry-schedule__item--title a")
+            date_el = entry.select_one(".entry-schedule__item--date")
+            if not title_el or not date_el:
+                continue
+            title = title_el.get_text(strip=True)
+            date_info = date_el.get_text(" ", strip=True)
+            schedule_items.append({"title": title, "date": date_info})
 
     except Exception:
         logger.exception("Gagal scrape jadwal JKT48")
-    finally:
-        if browser:
-            try:
-                await browser.close()
-            except Exception:
-                logger.debug("Browser sudah tertutup atau gagal menutup")
 
     return schedule_items
 
