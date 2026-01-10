@@ -470,6 +470,7 @@ async def audio_download_callback(update: Update, context: ContextTypes.DEFAULT_
     # Perintah unduh
     download_command = [
         sys.executable, '-m', 'yt_dlp',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
         '--extract-audio',
         '--audio-format', 'mp3',
         '--output', output_path,
