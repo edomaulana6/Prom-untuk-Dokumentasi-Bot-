@@ -23,7 +23,7 @@ import json
 import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from youtubesearchpython.__future__ import VideosSearch
+from youtubesearchpython import VideosSearch
 from telegram import InputMediaPhoto, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -399,7 +399,7 @@ async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Langkah 1: Cari kandidat video
     videos_search = VideosSearch(query, limit=25)
-    search_results = await videos_search.next()
+    search_results = videos_search.result()
 
     if not search_results or not search_results['result']:
         await status_msg.edit_text("Tidak ada video yang ditemukan.")
