@@ -11,6 +11,7 @@ Fitur:
 
 import logging
 import os
+import sys
 import asyncio
 from datetime import datetime
 from typing import List
@@ -395,7 +396,7 @@ async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         # Perintah yt-dlp untuk mencari 5 video, memfilter durasi < 10 menit, dan output JSON
         command = [
-            'yt-dlp',
+            sys.executable, '-m', 'yt_dlp',
             '--dump-json',
             '--no-playlist',
             '--match-filter', 'duration < 600',  # Filter durasi < 10 menit (600 detik)
