@@ -24,11 +24,12 @@ import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from youtubesearchpython.__future__ import VideosSearch
-from telegram import InputMediaPhoto, Update
+from telegram import InputMediaPhoto, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     CommandHandler,
+    CallbackQueryHandler,
     ConversationHandler,
     MessageHandler,
     ContextTypes,
@@ -389,76 +390,128 @@ async def get_audio_query_and_fetch(update: Update, context: ContextTypes.DEFAUL
 
 
 async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str):
-    """Mencari audio di YouTube dan mengirim hasilnya."""
+    """Mencari audio di YouTube dan menampilkan 5 pilihan teratas."""
     message = update.effective_message
     if not message:
         return
 
-    status_msg = await message.reply_text(f"🔎 Mencari audio '{query}'...", parse_mode=ParseMode.MARKDOWN)
+    status_msg = await message.reply_text(f"🔎 Mencari 5 audio teratas untuk '{query}'...", parse_mode=ParseMode.MARKDOWN)
+
+    # Langkah 1: Cari kandidat video
+    videos_search = VideosSearch(query, limit=25)
+    search_results = await videos_search.next()
+
+    if not search_results or not search_results['result']:
+        await status_msg.edit_text("Tidak ada video yang ditemukan.")
+        return
+
+    # Langkah 2: Filter untuk 5 video pertama yang valid
+    valid_videos = []
+    for video in search_results['result']:
+        try:
+            duration_parts = list(map(int, video.get('duration', '99:99').split(':')))
+            if len(duration_parts) == 2:
+                duration_seconds = duration_parts[0] * 60 + duration_parts[1]
+            elif len(duration_parts) == 3:
+                duration_seconds = duration_parts[0] * 3600 + duration_parts[1] * 60 + duration_parts[2]
+            else:
+                continue
+
+            if 0 < duration_seconds < 600:
+                video['duration_seconds'] = duration_seconds
+                valid_videos.append(video)
+                if len(valid_videos) >= 5:
+                    break
+        except (ValueError, TypeError):
+            continue
+
+    if not valid_videos:
+        await status_msg.edit_text("Tidak ada audio yang ditemukan dengan durasi yang sesuai (di bawah 10 menit).")
+        return
+
+    # Langkah 3: Buat tombol inline untuk setiap video
+    keyboard = []
+    for video in valid_videos:
+        title = video['title']
+        duration = video['duration']
+        callback_data = f"dl_audio:{video['id']}|{video['title']}|{video['duration_seconds']}"
+
+        button_text = f"{title[:40]}... ({duration})" if len(title) > 40 else f"{title} ({duration})"
+
+        if len(callback_data.encode('utf-8')) > 64:
+            # Jika callback_data terlalu panjang, kita harus memotong judul di dalamnya juga
+            truncated_title = video['title'][:20]
+            callback_data = f"dl_audio:{video['id']}|{truncated_title}|{video['duration_seconds']}"
+
+        keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await status_msg.edit_text("Berikut adalah 5 hasil teratas. Silakan pilih satu untuk diunduh:", reply_markup=reply_markup)
+
+
+async def audio_download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Menangani callback dari tombol inline untuk mengunduh audio."""
+    query = update.callback_query
+    await query.answer()
 
     try:
-        # Langkah 1: Cari kandidat video menggunakan youtube-search-python
-        videos_search = VideosSearch(query, limit=25)
-        search_results = await videos_search.next()
+        callback_data = query.data.split(':', 1)[1]
+        video_id, video_title, duration_seconds_str = callback_data.split('|', 2)
+        duration_seconds = int(duration_seconds_str)
+    except (IndexError, ValueError):
+        await query.edit_message_text("Callback tidak valid.")
+        return
 
-        if not search_results or not search_results['result']:
-            await status_msg.edit_text("Tidak ada video yang ditemukan.")
-            return
+    await query.edit_message_text(f"✅ Pilihan diterima! Memulai proses unduh untuk '{video_title}'...")
 
-        video_urls = [video['link'] for video in search_results['result']]
+    video_url = f"https://www.youtube.com/watch?v={video_id}"
+    output_path = f"/tmp/{video_id}.mp3"
 
-        # Langkah 2: Gunakan yt-dlp untuk memeriksa metadata dan memfilter durasi
-        command = [
-            sys.executable, '-m', 'yt_dlp',
-            '--dump-json',
-            '--no-playlist',
-            '--match-filter', 'duration < 600',  # Filter durasi < 10 menit (600 detik)
-            '--ignore-errors',
-        ] + video_urls
+    # Perintah unduh
+    download_command = [
+        sys.executable, '-m', 'yt_dlp',
+        '--extract-audio',
+        '--audio-format', 'mp3',
+        '--output', output_path,
+        video_url,
+    ]
 
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
+    process = await asyncio.create_subprocess_exec(
+        *download_command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    _, stderr = await process.communicate()
 
-        if process.returncode != 0:
-            logger.error("yt-dlp error: %s", stderr.decode())
-            # Jangan langsung gagal, mungkin hanya beberapa URL yang error
-            pass
+    if process.returncode != 0:
+        logger.error("yt-dlp download error: %s", stderr.decode())
+        await query.edit_message_text("Gagal mengunduh audio.")
+        return
 
-        valid_videos = []
-        for line in stdout.decode().strip().split('\n'):
-            if line:
-                try:
-                    video_data = json.loads(line)
-                    valid_videos.append(video_data)
-                except json.JSONDecodeError:
-                    continue
+    if not os.path.exists(output_path):
+        logger.error("File audio tidak ditemukan setelah diunduh: %s", output_path)
+        await query.edit_message_text("Terjadi kesalahan setelah proses unduh.")
+        return
 
-        if not valid_videos:
-            await status_msg.edit_text("Tidak ada audio yang ditemukan dengan durasi yang sesuai.")
-            return
-
-        # Ambil 5 video teratas yang valid
-        top_videos = valid_videos[:5]
-
-        response_text = f"<b>Hasil Pencarian Audio untuk: {query}</b>\n\n"
-        for i, video in enumerate(top_videos, 1):
-            title = video.get('title', 'Tanpa Judul')
-            duration_seconds = video.get('duration', 0)
-            minutes = duration_seconds // 60
-            seconds = duration_seconds % 60
-            duration_str = f"{minutes}:{seconds:02d}"
-            url = video.get('webpage_url', '#')
-            response_text += f"{i}. <a href='{url}'>{title}</a> ({duration_str})\n"
-
-        await status_msg.edit_text(response_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-
-    except Exception as e:
-        logger.exception("Error di fetch_and_send_audio: %s", e)
-        await status_msg.edit_text("Terjadi kesalahan yang tidak diketahui saat mencari audio.")
+    # Kirim audio
+    await query.edit_message_text("🎧 Mengirim audio...")
+    try:
+        with open(output_path, 'rb') as audio_file:
+            await context.bot.send_audio(
+                chat_id=query.message.chat_id,
+                audio=audio_file,
+                title=video_title,
+                duration=duration_seconds,
+                filename=f"{video_title}.mp3"
+            )
+        await query.delete_message()
+    except Exception:
+        logger.exception("Gagal mengirim file audio ke Telegram.")
+        await query.edit_message_text("Gagal mengirim file audio.")
+    finally:
+        # Hapus file
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -539,11 +592,15 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
+    # Menambahkan handler untuk callback tombol audio
+    application.add_handler(CallbackQueryHandler(audio_download_callback, pattern="^dl_audio:"))
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(jadwal_azan_conv_handler)
     application.add_handler(cari_foto_conv_handler)
     application.add_handler(cari_audio_conv_handler)
+    application.add_handler(CallbackQueryHandler(audio_download_callback, pattern="^dl_audio:"))
     application.add_handler(CommandHandler("jadwal_konser", jadwal_jkt48))
     application.add_handler(CommandHandler("jadwal_live", jadwal_live))
 
