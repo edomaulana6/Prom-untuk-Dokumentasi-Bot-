@@ -560,11 +560,12 @@ def main() -> None:
     """Menjalankan bot."""
     load_dotenv()
     TOKEN = os.getenv("TELEGRAM_TOKEN")
-    OWNER_ID = os.getenv("OWNER_ID")
     if not TOKEN:
         raise ValueError("TELEGRAM_TOKEN tidak diatur di .env")
+
+    OWNER_ID = os.getenv("OWNER_ID")
     if not OWNER_ID:
-        raise ValueError("OWNER_ID tidak diatur di .env")
+        logger.warning("OWNER_ID tidak diatur di .env. Notifikasi error tidak akan dikirim.")
 
     application = Application.builder().token(TOKEN).build()
 
@@ -600,7 +601,6 @@ def main() -> None:
     application.add_handler(jadwal_azan_conv_handler)
     application.add_handler(cari_foto_conv_handler)
     application.add_handler(cari_audio_conv_handler)
-    application.add_handler(CallbackQueryHandler(audio_download_callback, pattern="^dl_audio:"))
     application.add_handler(CommandHandler("jadwal_konser", jadwal_jkt48))
     application.add_handler(CommandHandler("jadwal_live", jadwal_live))
 

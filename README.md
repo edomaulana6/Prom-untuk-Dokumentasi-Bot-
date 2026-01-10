@@ -66,8 +66,8 @@ Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan
     # Ganti dengan token bot Anda yang didapat dari @BotFather
     TELEGRAM_TOKEN="12345:ABC-DEF12345"
 
-    # Ganti dengan ID Telegram numerik Anda untuk menerima notifikasi error
-    OWNER_ID="8374386811"
+    # (Opsional, tapi direkomendasikan) Ganti dengan ID Telegram numerik Anda untuk menerima notifikasi error
+    # OWNER_ID="8374386811"
     ```
 
 3.  **Simpan dan keluar dari `nano`**.
