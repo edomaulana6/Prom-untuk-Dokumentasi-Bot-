@@ -21,7 +21,7 @@ import json
 import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from youtubesearchpython import VideosSearch
+from youtubesearchpython.async import VideosSearch
 from telegram import InputMediaPhoto, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
