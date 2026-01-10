@@ -13,6 +13,8 @@ import logging
 import os
 import sys
 import asyncio
+import traceback
+import html
 from datetime import datetime
 from typing import List
 from urllib.parse import quote_plus
@@ -21,7 +23,7 @@ import json
 import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from youtubesearchpython.async import VideosSearch
+from youtubesearchpython.__future__ import VideosSearch
 from telegram import InputMediaPhoto, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -467,14 +469,54 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
+# --- Error Handler ---
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Menangkap semua error dan mengirim notifikasi ke owner."""
+    logger.error("Exception while handling an update:", exc_info=context.error)
+
+    # Memformat traceback
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    tb_string = "".join(tb_list)
+
+    # Mempersiapkan pesan notifikasi untuk owner
+    update_str = update.to_json(indent=2) if isinstance(update, Update) else str(update)
+    message = (
+        f"An exception was raised while handling an update\n"
+        f"<pre>update = {html.escape(update_str)}</pre>\n\n"
+        f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
+        f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
+        f"<pre>{html.escape(tb_string)}</pre>"
+    )
+
+    # Mengirim notifikasi ke owner
+    owner_id = os.getenv("OWNER_ID")
+    if owner_id:
+        await context.bot.send_message(
+            chat_id=owner_id, text=message, parse_mode=ParseMode.HTML
+        )
+
+    # Memberi tahu pengguna (jika memungkinkan)
+    if isinstance(update, Update) and update.effective_message:
+        await update.effective_message.reply_text(
+            "Maaf, terjadi kesalahan internal. Developer telah diberi tahu."
+        )
+
+
 def main() -> None:
     """Menjalankan bot."""
     load_dotenv()
     TOKEN = os.getenv("TELEGRAM_TOKEN")
+    OWNER_ID = os.getenv("OWNER_ID")
     if not TOKEN:
         raise ValueError("TELEGRAM_TOKEN tidak diatur di .env")
+    if not OWNER_ID:
+        raise ValueError("OWNER_ID tidak diatur di .env")
 
     application = Application.builder().token(TOKEN).build()
+
+    # Mendaftarkan error handler
+    application.add_error_handler(error_handler)
 
     # Conversation handler untuk /jadwal_azan
     jadwal_azan_conv_handler = ConversationHandler(
