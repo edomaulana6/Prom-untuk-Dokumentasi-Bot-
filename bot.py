@@ -11,6 +11,7 @@ Fitur:
 
 import logging
 import os
+import asyncio
 from datetime import datetime
 from typing import List
 from urllib.parse import quote_plus
@@ -37,7 +38,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # States untuk ConversationHandlers
-GET_REGION, GET_PHOTO_QUERY = range(2)
+GET_REGION, GET_PHOTO_QUERY, GET_AUDIO_QUERY = range(3)
 
 # --- Handler Perintah Utama ---
 
@@ -59,6 +60,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "Perintah yang tersedia:\n"
             "/jadwal_azan <daerah> - Mencari jadwal sholat.\n"
             "/cari_foto <query> - Mencari foto (menggunakan Bing Images).\n"
+            "/cari_audio <query> - Mencari audio dari YouTube.\n"
             "/jadwal_konser - Menampilkan jadwal teater dan event JKT48.\n"
             "/jadwal_live - (Dalam Pengembangan) Info jadwal live streaming JKT48."
         )
@@ -360,6 +362,90 @@ async def scrape_jkt48_schedule(url: str) -> List[dict]:
     return schedule_items
 
 
+# --- Logika untuk /cari_audio ---
+
+async def cari_audio_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Memulai alur untuk mencari audio."""
+    query = " ".join(context.args) if getattr(context, "args", None) else ""
+    if query:
+        await fetch_and_send_audio(update, context, query)
+        return ConversationHandler.END
+
+    message = update.effective_message
+    if message:
+        await message.reply_text("Anda ingin mencari audio apa?")
+    return GET_AUDIO_QUERY
+
+
+async def get_audio_query_and_fetch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Mendapatkan query audio dari pengguna dan memulai pencarian."""
+    query = update.effective_message.text if update.effective_message else ""
+    await fetch_and_send_audio(update, context, query)
+    return ConversationHandler.END
+
+
+async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str):
+    """Mencari audio di YouTube menggunakan yt-dlp dan mengirim hasilnya."""
+    message = update.effective_message
+    if not message:
+        return
+
+    status_msg = await message.reply_text(f"🔎 Mencari audio '{query}'...", parse_mode=ParseMode.MARKDOWN)
+
+    try:
+        # Perintah yt-dlp untuk mencari 5 video, memfilter durasi < 10 menit, dan output JSON
+        command = [
+            'yt-dlp',
+            '--dump-json',
+            '--no-playlist',
+            '--match-filter', 'duration < 600',  # Filter durasi < 10 menit (600 detik)
+            '--ignore-errors',
+            '--default-search', 'ytsearch100',
+            query
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            logger.error("yt-dlp error: %s", stderr.decode())
+            await status_msg.edit_text("Terjadi kesalahan saat mencari audio.")
+            return
+
+        results = []
+        for line in stdout.decode().strip().split('\n'):
+            if line:
+                try:
+                    video_data = json.loads(line)
+                    results.append(video_data)
+                except json.JSONDecodeError:
+                    continue  # Abaikan baris yang bukan JSON valid
+
+        if not results:
+            await status_msg.edit_text("Tidak ada audio yang ditemukan dengan durasi yang sesuai.")
+            return
+
+        response_text = f"<b>Hasil Pencarian Audio untuk: {query}</b>\n\n"
+        for i, video in enumerate(results[:5], 1):
+            title = video.get('title', 'Tanpa Judul')
+            duration_seconds = video.get('duration', 0)
+            minutes = duration_seconds // 60
+            seconds = duration_seconds % 60
+            duration_str = f"{minutes}:{seconds:02d}"
+            url = video.get('webpage_url', '#')
+            response_text += f"{i}. <a href='{url}'>{title}</a> ({duration_str})\n"
+
+        await status_msg.edit_text(response_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+
+    except Exception as e:
+        logger.exception("Error di fetch_and_send_audio: %s", e)
+        await status_msg.edit_text("Terjadi kesalahan yang tidak diketahui saat mencari audio.")
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Membatalkan percakapan."""
     message = update.effective_message
@@ -391,10 +477,18 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
+    # Conversation handler untuk /cari_audio
+    cari_audio_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("cari_audio", cari_audio_start)],
+        states={GET_AUDIO_QUERY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_audio_query_and_fetch)]},
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(jadwal_azan_conv_handler)
     application.add_handler(cari_foto_conv_handler)
+    application.add_handler(cari_audio_conv_handler)
     application.add_handler(CommandHandler("jadwal_konser", jadwal_jkt48))
     application.add_handler(CommandHandler("jadwal_live", jadwal_live))
 

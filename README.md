@@ -6,6 +6,7 @@ Bot Telegram ini dirancang untuk menyediakan berbagai informasi secara cepat dan
 
 -   **/jadwal_azan <daerah>**: Mencari jadwal sholat untuk daerah tertentu di Indonesia. Jika daerah tidak disebutkan, bot akan bertanya balik.
 -   **/cari_foto <query>**: Mencari dan menampilkan 5 gambar teratas dari Pinterest berdasarkan kata kunci yang diberikan. Jika kata kunci tidak ada, bot akan bertanya.
+-   **/cari_audio <query>**: Mencari 5 video teratas dari YouTube dengan durasi di bawah 10 menit yang cocok dengan kata kunci.
 -   **/jadwal_konser**: Menampilkan jadwal pertunjukan teater dan event/konser JKT48 yang akan datang, diambil langsung dari situs resmi.
 -   **/jadwal_live**: Memberikan informasi bahwa fitur jadwal live streaming dari Showroom sedang dalam pengembangan.
 
