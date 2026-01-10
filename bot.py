@@ -21,6 +21,7 @@ import json
 import httpx
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from youtubesearchpython import VideosSearch
 from telegram import InputMediaPhoto, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -386,7 +387,7 @@ async def get_audio_query_and_fetch(update: Update, context: ContextTypes.DEFAUL
 
 
 async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str):
-    """Mencari audio di YouTube menggunakan yt-dlp dan mengirim hasilnya."""
+    """Mencari audio di YouTube dan mengirim hasilnya."""
     message = update.effective_message
     if not message:
         return
@@ -394,16 +395,24 @@ async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYP
     status_msg = await message.reply_text(f"🔎 Mencari audio '{query}'...", parse_mode=ParseMode.MARKDOWN)
 
     try:
-        # Perintah yt-dlp untuk mencari 5 video, memfilter durasi < 10 menit, dan output JSON
+        # Langkah 1: Cari kandidat video menggunakan youtube-search-python
+        videos_search = VideosSearch(query, limit=25)
+        search_results = await videos_search.next()
+
+        if not search_results or not search_results['result']:
+            await status_msg.edit_text("Tidak ada video yang ditemukan.")
+            return
+
+        video_urls = [video['link'] for video in search_results['result']]
+
+        # Langkah 2: Gunakan yt-dlp untuk memeriksa metadata dan memfilter durasi
         command = [
             sys.executable, '-m', 'yt_dlp',
             '--dump-json',
             '--no-playlist',
             '--match-filter', 'duration < 600',  # Filter durasi < 10 menit (600 detik)
             '--ignore-errors',
-            '--default-search', 'ytsearch100',
-            query
-        ]
+        ] + video_urls
 
         process = await asyncio.create_subprocess_exec(
             *command,
@@ -414,24 +423,27 @@ async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYP
 
         if process.returncode != 0:
             logger.error("yt-dlp error: %s", stderr.decode())
-            await status_msg.edit_text("Terjadi kesalahan saat mencari audio.")
-            return
+            # Jangan langsung gagal, mungkin hanya beberapa URL yang error
+            pass
 
-        results = []
+        valid_videos = []
         for line in stdout.decode().strip().split('\n'):
             if line:
                 try:
                     video_data = json.loads(line)
-                    results.append(video_data)
+                    valid_videos.append(video_data)
                 except json.JSONDecodeError:
-                    continue  # Abaikan baris yang bukan JSON valid
+                    continue
 
-        if not results:
+        if not valid_videos:
             await status_msg.edit_text("Tidak ada audio yang ditemukan dengan durasi yang sesuai.")
             return
 
+        # Ambil 5 video teratas yang valid
+        top_videos = valid_videos[:5]
+
         response_text = f"<b>Hasil Pencarian Audio untuk: {query}</b>\n\n"
-        for i, video in enumerate(results[:5], 1):
+        for i, video in enumerate(top_videos, 1):
             title = video.get('title', 'Tanpa Judul')
             duration_seconds = video.get('duration', 0)
             minutes = duration_seconds // 60
