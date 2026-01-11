@@ -450,69 +450,82 @@ async def fetch_and_send_audio(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def audio_download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Menangani callback dari tombol inline untuk mengunduh audio."""
+    """Menangani callback untuk mengunduh audio menggunakan yt-dlp dan mengirimkannya."""
     query = update.callback_query
     await query.answer()
 
     try:
         callback_data = query.data.split(':', 1)[1]
-        video_id, video_title, duration_seconds_str = callback_data.split('|', 2)
-        duration_seconds = int(duration_seconds_str)
+        video_id, video_title, _ = callback_data.split('|', 2)
     except (IndexError, ValueError):
         await query.edit_message_text("Callback tidak valid.")
         return
 
-    await query.edit_message_text(f"✅ Pilihan diterima! Memulai proses unduh untuk '{video_title}'...")
+    # User-Agent untuk penyamaran
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
 
-    video_url = f"https://www.youtube.com/watch?v={video_id}"
-    output_path = f"/tmp/{video_id}.mp3"
+    # Path file sementara
+    output_path = f"/tmp/{video_id}"
+    output_template = f"{output_path}.%(ext)s"
+    final_filepath = f"{output_path}.mp3"
 
-    # Perintah unduh
-    download_command = [
-        sys.executable, '-m', 'yt_dlp',
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-        '--extract-audio',
-        '--audio-format', 'mp3',
-        '--output', output_path,
-        video_url,
-    ]
+    status_msg = await query.edit_message_text(f"⬇️ Mengunduh audio untuk '{video_title}'...")
 
-    process = await asyncio.create_subprocess_exec(
-        *download_command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
-    _, stderr = await process.communicate()
-
-    if process.returncode != 0:
-        logger.error("yt-dlp download error: %s", stderr.decode())
-        await query.edit_message_text("Gagal mengunduh audio.")
-        return
-
-    if not os.path.exists(output_path):
-        logger.error("File audio tidak ditemukan setelah diunduh: %s", output_path)
-        await query.edit_message_text("Terjadi kesalahan setelah proses unduh.")
-        return
-
-    # Kirim audio
-    await query.edit_message_text("🎧 Mengirim audio...")
+    proc = None
     try:
-        with open(output_path, 'rb') as audio_file:
+        url = f"https://www.youtube.com/watch?v={video_id}"
+
+        # Perintah yt-dlp
+        command = [
+            "yt-dlp",
+            "-x", # Ekstrak audio
+            "--audio-format", "mp3",
+            "--user-agent", USER_AGENT,
+            "-o", output_template,
+            url,
+        ]
+
+        # Menjalankan subprocess secara asynchronous
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            logger.error(f"yt-dlp gagal untuk video ID {video_id}. Kode: {proc.returncode}")
+            logger.error(f"Stderr: {stderr.decode(errors='ignore')}")
+            await status_msg.edit_text("Gagal mengunduh audio. Mungkin ada batasan dari YouTube.")
+            return
+
+        # Kirim file audio
+        await status_msg.edit_text(f"⬆️ Mengirim audio '{video_title}'...")
+        with open(final_filepath, 'rb') as audio_file:
             await context.bot.send_audio(
                 chat_id=query.message.chat_id,
                 audio=audio_file,
-                title=video_title,
-                duration=duration_seconds,
-                filename=f"{video_title}.mp3"
+                title=video_title
             )
+
+        # Hapus pesan tombol setelah berhasil
         await query.delete_message()
-    except Exception:
-        logger.exception("Gagal mengirim file audio ke Telegram.")
-        await query.edit_message_text("Gagal mengirim file audio.")
+
+    except FileNotFoundError:
+        logger.error(f"File audio tidak ditemukan di '{final_filepath}' setelah diunduh.")
+        await status_msg.edit_text("Terjadi kesalahan: file yang diunduh tidak ditemukan.")
+    except Exception as e:
+        logger.error(f"Gagal mengirim audio untuk video ID {video_id}: {e}")
+        # Kirim notifikasi ke user, tapi jangan hapus pesan status agar bisa dilihat
+        await status_msg.edit_text("Maaf, terjadi kesalahan saat memproses permintaan Anda.")
     finally:
-        # Hapus file
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        # Pastikan file sementara dihapus
+        if os.path.exists(final_filepath):
+            try:
+                os.remove(final_filepath)
+            except OSError as e:
+                logger.error(f"Gagal menghapus file sementara '{final_filepath}': {e}")
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
